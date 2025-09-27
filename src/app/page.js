@@ -2,8 +2,8 @@ import Image from "next/image";
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <h1>Helo krishna Toyverse</h1>
+    <div className="flex items-center justify-center h-screen bg-pink-500 text-white text-2xl font-bold text-red-50">
+      Tailwind is Working 🚀
     </div>
   );
 }
