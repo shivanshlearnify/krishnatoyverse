@@ -25,6 +25,9 @@ export default function Navbar() {
 
         {/* Desktop Links */}
         <div className="hidden md:flex space-x-6">
+          <Link href="/adminPannel" className="hover:text-pink-500 transition">
+            Admin pannel
+          </Link>
           <Link href="/about" className="hover:text-pink-500 transition">
             About
           </Link>
@@ -40,6 +43,13 @@ export default function Navbar() {
       {/* Mobile Dropdown */}
       {isOpen && (
         <div className="md:hidden flex flex-col mt-3 space-y-3">
+          <Link
+            href="adminPannel"
+            className="hover:text-pink-500 transition"
+            onClick={() => setIsOpen(false)}
+          >
+            Admin pannel
+          </Link>
           <Link
             href="/about"
             className="hover:text-pink-500 transition"
