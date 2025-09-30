@@ -23,8 +23,37 @@ export default function ExcelUploader() {
 
       // Convert to JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const limitedData = jsonData.map(
+        ({
+          name,
+          stock,
+          cost,
+          value,
+          mrp,
+          rate,
+          company,
+          rec_date,
+          supplier,
+          suppinvo,
+          suppdate,
+          barcode,
+        }) => ({
+          name,
+          stock,
+          cost,
+          value,
+          mrp,
+          rate,
+          company,
+          rec_date,
+          supplier,
+          suppinvo,
+          suppdate,
+          barcode,
+        })
+      );
 
-      setData(jsonData);
+      setData(limitedData);
       setUploaded(true);
     };
 
