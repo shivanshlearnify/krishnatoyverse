@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import SaveExcelArrayToFirestore from "./SaveExcelArrayToFirestore";
 
 export default function ExcelUploader() {
   const [data, setData] = useState([]);
@@ -23,8 +24,10 @@ export default function ExcelUploader() {
 
       // Convert to JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
       const limitedData = jsonData.map(
         ({
+          code,
           name,
           stock,
           cost,
@@ -38,6 +41,7 @@ export default function ExcelUploader() {
           suppdate,
           barcode,
         }) => ({
+          code,
           name,
           stock,
           cost,
@@ -49,7 +53,9 @@ export default function ExcelUploader() {
           supplier,
           suppinvo,
           suppdate,
-          barcode,
+          barcode : barcode ? String(barcode).replace("[M]", "").trim() : "",
+          photoURL: "", 
+          category: "", 
         })
       );
 
@@ -69,14 +75,7 @@ export default function ExcelUploader() {
         className="border p-2"
       />
 
-      {uploaded && (
-        <div className="mt-4">
-          <h2 className="font-bold text-lg">Array of Objects:</h2>
-          <pre className="bg-gray-100 p-2 rounded max-h-180 overflow-auto">
-            {JSON.stringify(data, null, 2)}
-          </pre>
-        </div>
-      )}
+      <SaveExcelArrayToFirestore dataArray={data}/>
     </div>
   );
 }
