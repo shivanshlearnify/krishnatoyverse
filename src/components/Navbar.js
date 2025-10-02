@@ -28,6 +28,9 @@ export default function Navbar() {
           <Link href="/adminPannel" className="hover:text-pink-500 transition">
             Admin pannel
           </Link>
+          <Link href="/addProduct" className="hover:text-pink-500 transition">
+            Add product
+          </Link>
           <Link href="/about" className="hover:text-pink-500 transition">
             About
           </Link>
@@ -44,11 +47,18 @@ export default function Navbar() {
       {isOpen && (
         <div className="md:hidden flex flex-col mt-3 space-y-3">
           <Link
-            href="adminPannel"
+            href="/adminPannel"
             className="hover:text-pink-500 transition"
             onClick={() => setIsOpen(false)}
           >
             Admin pannel
+          </Link>
+          <Link
+            href="/addProduct"
+            className="hover:text-pink-500 transition"
+            onClick={() => setIsOpen(false)}
+          >
+            Add product
           </Link>
           <Link
             href="/about"
