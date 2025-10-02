@@ -26,21 +26,21 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
     try {
       const colRef = collection(db, "stockCollection");
 
-      // Aggregate duplicates by barcode + name
+      // 1️⃣ Aggregate duplicates by barcode + name (sum stock in Excel itself)
       const aggregatedData = dataArray.reduce((acc, item) => {
         const key = `${item.barcode}_${item.name}`;
         if (acc[key]) {
-          // Add stock if item already exists in aggregated object
           acc[key].stock += Number(item.stock || 0);
         } else {
-          acc[key] = { ...item, stock: Number(item.stock || 0) }; // make sure stock is number
+          acc[key] = { ...item, stock: Number(item.stock || 0) };
         }
         return acc;
       }, {});
 
-      // Convert back to array
+      // Convert to array
       const finalDataArray = Object.values(aggregatedData);
 
+      // 2️⃣ Sync with Firestore
       for (let item of finalDataArray) {
         if (!item.barcode) continue;
 
@@ -56,24 +56,24 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
           const existingData = existingDoc.data();
 
           const oldStock = Number(existingData.stock || 0);
-          const finalStock = oldStock + Number(item.stock);
-          const stockChange = finalStock - oldStock;
+          const newStock = Number(item.stock); // stock from Excel
+          const stockChange = newStock - oldStock;
 
           await updateDoc(existingDoc.ref, {
             ...item,
-            stock: finalStock,
+            stock: newStock, // 🔥 overwrite with Excel stock
             updatedAt: new Date().toISOString(),
           });
 
-          console.log(
-            `UPDATED: ${item.name} (Barcode: ${
-              item.barcode
-            }) | Old: ${oldStock}, Added: ${
-              item.stock
-            }, Final: ${finalStock} (${
-              stockChange >= 0 ? "+" : ""
-            }${stockChange})`
-          );
+          if (stockChange !== 0) {
+            console.log(
+              `UPDATED: ${item.name} (Barcode: ${
+                item.barcode
+              }) | Old: ${oldStock}, New: ${newStock}, Change: ${
+                stockChange >= 0 ? "+" : ""
+              }${stockChange}`
+            );
+          }
         } else {
           await addDoc(colRef, {
             ...item,
@@ -81,12 +81,12 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
             createdAt: new Date().toISOString(),
           });
           console.log(
-            // `CREATED: ${item.name} (Barcode: ${item.barcode}) | Initial Stock: ${item.stock}`
+            `CREATED: ${item.name} (Barcode: ${item.barcode}) | Initial Stock: ${item.stock}`
           );
         }
       }
 
-      setStatus("Data saved & updated successfully!");
+      setStatus("Data synced successfully!");
     } catch (error) {
       console.error("Error saving data:", error);
       setStatus("Error saving data!");

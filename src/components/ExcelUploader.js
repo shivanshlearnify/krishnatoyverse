@@ -6,6 +6,24 @@ import SaveExcelArrayToFirestore from "./SaveExcelArrayToFirestore";
 export default function ExcelUploader() {
   const [data, setData] = useState([]);
   const [uploaded, setUploaded] = useState(false);
+  const [error, setError] = useState("");
+
+  // Required fields
+  const requiredFields = [
+    "code",
+    "name",
+    "stock",
+    "cost",
+    "value",
+    "mrp",
+    "rate",
+    "company",
+    "rec_date",
+    "supplier",
+    "suppinvo",
+    "suppdate",
+    "barcode",
+  ];
 
   // Handle File Upload
   const handleFileUpload = (e) => {
@@ -25,6 +43,29 @@ export default function ExcelUploader() {
       // Convert to JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+      if (jsonData.length === 0) {
+        setError("Excel file is empty!");
+        return;
+      }
+
+      // ✅ Check if all required fields exist
+      const firstRowKeys = Object.keys(jsonData[0]).map((k) =>
+        k.toLowerCase().trim()
+      );
+      const missingFields = requiredFields.filter(
+        (field) => !firstRowKeys.includes(field.toLowerCase())
+      );
+
+      if (missingFields.length > 0) {
+        setError(
+          `Missing required fields in Excel: ${missingFields.join(", ")}`
+        );
+        setData([]);
+        setUploaded(false);
+        return;
+      }
+
+      // ✅ Map only required fields
       const limitedData = jsonData.map(
         ({
           code,
@@ -53,12 +94,13 @@ export default function ExcelUploader() {
           supplier,
           suppinvo,
           suppdate,
-          barcode : barcode ? String(barcode).replace("[M]", "").trim() : "",
-          photoURL: "", 
-          category: "", 
+          barcode: barcode ? String(barcode).replace("[M]", "").trim() : "",
+          photoURL: "",
+          category: "",
         })
       );
 
+      setError("");
       setData(limitedData);
       setUploaded(true);
     };
@@ -75,7 +117,15 @@ export default function ExcelUploader() {
         className="border p-2"
       />
 
-      <SaveExcelArrayToFirestore dataArray={data}/>
+      {error && (
+        <p className="text-red-600 font-semibold">
+          {error}
+        </p>
+      )}
+
+      {uploaded && !error && (
+        <SaveExcelArrayToFirestore dataArray={data} />
+      )}
     </div>
   );
 }
