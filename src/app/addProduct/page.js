@@ -20,29 +20,35 @@ export default function AddProductImage() {
   const [products, setProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
 
-  // Search Firestore by barcode or name
+  // 🔍 Search Firestore by barcode or name
   const handleSearch = async () => {
+    if (!searchType || !searchQuery) {
+      alert("Please select search type and enter a query");
+      return;
+    }
+
     let q;
     if (searchType === "barcode") {
       q = query(
         collection(db, "stockCollection"),
         where("barcode", "==", searchQuery)
       );
-    } else if (searchType === "name") {
+    } else {
       q = query(
         collection(db, "stockCollection"),
         where("name", "==", searchQuery)
       );
-    } else {
-      alert("Please select search type");
-      return;
     }
+
     const snap = await getDocs(q);
-    const results = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const results = snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
     setProducts(results);
   };
 
-  // Upload image to Firebase Storage & save reference in Firestore
+  // 📸 Upload image to Firebase Storage & save reference in Firestore
   const handleUpload = async (productId, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -53,24 +59,34 @@ export default function AddProductImage() {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
-      const productRef = doc(db, "products", productId);
+      const productRef = doc(db, "stockCollection", productId); // ✅ fixed
       await updateDoc(productRef, {
-        images: arrayUnion(url), // store multiple image URLs
+        images: arrayUnion(url), // allow multiple image URLs
       });
 
-      alert("Image uploaded successfully!");
+      // 🔄 Refresh product list so UI updates with new image count
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId
+            ? { ...p, images: [...(p.images || []), url] }
+            : p
+        )
+      );
+
+      alert("✅ Image uploaded successfully!");
     } catch (err) {
       console.error(err);
-      alert("Error uploading image");
+      alert("❌ Error uploading image");
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-xl font-bold">Add Product Image</h1>
 
-      {/* Choose search type */}
+      {/* Search Type */}
       <div className="flex gap-4">
         <button
           onClick={() => setSearchType("barcode")}
@@ -90,10 +106,9 @@ export default function AddProductImage() {
         </button>
       </div>
 
-      {/* Barcode scan or search input */}
+      {/* Barcode search */}
       {searchType === "barcode" && (
         <div className="space-y-3">
-          {/* Toggle between Type and Scan */}
           <div className="flex gap-2">
             <button
               className={`px-3 py-1 rounded ${
@@ -117,7 +132,6 @@ export default function AddProductImage() {
             </button>
           </div>
 
-          {/* Type Mode */}
           {barcodeMode === "type" && (
             <input
               type="text"
@@ -128,13 +142,13 @@ export default function AddProductImage() {
             />
           )}
 
-          {/* Scan Mode */}
           {barcodeMode === "scan" && (
             <BarcodeScanner onScan={(code) => setSearchQuery(code)} />
           )}
         </div>
       )}
 
+      {/* Name search */}
       {searchType === "name" && (
         <input
           type="text"
@@ -152,7 +166,7 @@ export default function AddProductImage() {
         Search
       </button>
 
-      {/* Show products */}
+      {/* Products list */}
       <div className="space-y-4">
         {products.map((p) => (
           <div key={p.id} className="border p-4 rounded shadow">
@@ -167,7 +181,7 @@ export default function AddProductImage() {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment" // 👈 opens back camera directly
+                capture="environment" // ✅ mobile opens back camera
                 hidden
                 onChange={(e) => handleUpload(p.id, e)}
               />
