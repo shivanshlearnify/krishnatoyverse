@@ -30,12 +30,12 @@ export default function AddProductImage() {
     let q;
     if (searchType === "barcode") {
       q = query(
-        collection(db, "stockCollection"),
+        collection(db, "productCollection"),
         where("barcode", "==", searchQuery)
       );
     } else {
       q = query(
-        collection(db, "stockCollection"),
+        collection(db, "productCollection"),
         where("name", "==", searchQuery)
       );
     }
@@ -59,7 +59,7 @@ export default function AddProductImage() {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
-      const productRef = doc(db, "stockCollection", productId); // ✅ fixed
+      const productRef = doc(db, "productCollection", productId); // ✅ fixed
       await updateDoc(productRef, {
         images: arrayUnion(url), // allow multiple image URLs
       });
@@ -67,9 +67,7 @@ export default function AddProductImage() {
       // 🔄 Refresh product list so UI updates with new image count
       setProducts((prev) =>
         prev.map((p) =>
-          p.id === productId
-            ? { ...p, images: [...(p.images || []), url] }
-            : p
+          p.id === productId ? { ...p, images: [...(p.images || []), url] } : p
         )
       );
 
@@ -168,26 +166,30 @@ export default function AddProductImage() {
 
       {/* Products list */}
       <div className="space-y-4">
-        {products.map((p) => (
-          <div key={p.id} className="border p-4 rounded shadow">
-            <h2 className="font-semibold">{p.name}</h2>
-            <p>Barcode: {p.barcode}</p>
-            <p>Images Available: {p.images?.length || 0}</p>
+        {products.map((p) => {
+          console.log("Product:", p); // ✅ logs each product object
 
-            <label className="block mt-2">
-              <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
-                Add Image
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment" // ✅ mobile opens back camera
-                hidden
-                onChange={(e) => handleUpload(p.id, e)}
-              />
-            </label>
-          </div>
-        ))}
+          return (
+            <div key={p.id} className="border p-4 rounded shadow">
+              <h2 className="font-semibold">{p.name}</h2>
+              <p>Barcode: {p.barcode}</p>
+              <p>Images Available: {p.images?.length || 0}</p>
+
+              <label className="block mt-2">
+                <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
+                  Add Image
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment" // ✅ mobile opens back camera
+                  hidden
+                  onChange={(e) => handleUpload(p.id, e)}
+                />
+              </label>
+            </div>
+          );
+        })}
       </div>
 
       {uploading && <p className="text-blue-500">Uploading...</p>}

@@ -95,8 +95,10 @@ export default function ExcelUploader() {
           suppinvo,
           suppdate,
           barcode: barcode ? String(barcode).replace("[M]", "").trim() : "",
-          photoURL: "",
+          brand: "",
           category: "",
+          subCategory: "",
+          group: "",
         })
       );
 
@@ -117,15 +119,9 @@ export default function ExcelUploader() {
         className="border p-2"
       />
 
-      {error && (
-        <p className="text-red-600 font-semibold">
-          {error}
-        </p>
-      )}
+      {error && <p className="text-red-600 font-semibold">{error}</p>}
 
-      {uploaded && !error && (
-        <SaveExcelArrayToFirestore dataArray={data} />
-      )}
+      {uploaded && !error && <SaveExcelArrayToFirestore dataArray={data} />}
     </div>
   );
 }

@@ -24,7 +24,7 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
     setStatus("");
 
     try {
-      const colRef = collection(db, "stockCollection");
+      const colRef = collection(db, "productCollection");
 
       // 1️⃣ Aggregate duplicates by barcode + name (sum stock in Excel itself)
       const aggregatedData = dataArray.reduce((acc, item) => {

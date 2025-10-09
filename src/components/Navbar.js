@@ -3,86 +3,32 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react"; // modern icons (auto-available)
+import AnnouncementBar from "./AnnouncementBar";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="w-full bg-white shadow-md px-6 py-3">
-      <div className="flex justify-between items-center">
-        {/* Logo */}
-        <Link href="/" className="text-xl font-bold text-pink-600">
-          MyBrand
-        </Link>
+    <>
+      <AnnouncementBar />
+      <nav className="w-full bg-white px-36 py-3">
+        <div className="flex justify-between items-center">
+          {/* Logo */}
+          <Link href="/" className="text-xl font-bold text-pink-600">
+            ToyVerse
+          </Link>
 
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="md:hidden text-gray-800 focus:outline-none"
-        >
-          {isOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
-
-        {/* Desktop Links */}
-        <div className="hidden md:flex space-x-6">
-          <Link href="/adminPannel" className="hover:text-pink-500 transition">
-            Admin pannel
-          </Link>
-          <Link href="/addProduct" className="hover:text-pink-500 transition">
-            Add product
-          </Link>
-          <Link href="/about" className="hover:text-pink-500 transition">
-            About
-          </Link>
-          <Link href="/services" className="hover:text-pink-500 transition">
-            Services
-          </Link>
-          <Link href="/contact" className="hover:text-pink-500 transition">
-            Contact
-          </Link>
+          {/* Desktop Links */}
+          <div className="hidden md:flex space-x-6">
+            <Link href="/services" className="hover:text-[#c650e4] cursor-pointer transition text-2xl font-bold text-[#c650e4d3]">
+              Login
+            </Link>
+            <Link href="/contact" className="hover:text-[#c650e4] cursor-pointer text-2xl transition font-bold text-[#c650e4d3]">
+              Cart (0)
+            </Link>
+          </div>
         </div>
-      </div>
-
-      {/* Mobile Dropdown */}
-      {isOpen && (
-        <div className="md:hidden flex flex-col mt-3 space-y-3">
-          <Link
-            href="/adminPannel"
-            className="hover:text-pink-500 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            Admin pannel
-          </Link>
-          <Link
-            href="/addProduct"
-            className="hover:text-pink-500 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            Add product
-          </Link>
-          <Link
-            href="/about"
-            className="hover:text-pink-500 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            About
-          </Link>
-          <Link
-            href="/services"
-            className="hover:text-pink-500 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            Services
-          </Link>
-          <Link
-            href="/contact"
-            className="hover:text-pink-500 transition"
-            onClick={() => setIsOpen(false)}
-          >
-            Contact
-          </Link>
-        </div>
-      )}
-    </nav>
+      </nav>
+    </>
   );
 }
