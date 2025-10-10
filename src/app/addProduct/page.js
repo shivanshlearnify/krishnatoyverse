@@ -141,7 +141,9 @@ export default function AddProductImage() {
           )}
 
           {barcodeMode === "scan" && (
-            <BarcodeScanner onScan={(code) => setSearchQuery(code)} />
+            <div className="h-[400px] w-full">
+              <BarcodeScanner onScan={(code) => setSearchQuery(code)} />
+            </div>
           )}
         </div>
       )}
