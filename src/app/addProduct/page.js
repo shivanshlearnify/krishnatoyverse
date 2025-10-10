@@ -14,8 +14,9 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
 export default function AddProductImage() {
-  const [searchType, setSearchType] = useState(""); // barcode | name
-  const [barcodeMode, setBarcodeMode] = useState("type"); // type | scan
+  // ✅ Set default values here
+  const [searchType, setSearchType] = useState("barcode"); // default: barcode
+  const [barcodeMode, setBarcodeMode] = useState("scan"); // default: scan
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -59,12 +60,11 @@ export default function AddProductImage() {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
-      const productRef = doc(db, "productCollection", productId); // ✅ fixed
+      const productRef = doc(db, "productCollection", productId);
       await updateDoc(productRef, {
-        images: arrayUnion(url), // allow multiple image URLs
+        images: arrayUnion(url),
       });
 
-      // 🔄 Refresh product list so UI updates with new image count
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId ? { ...p, images: [...(p.images || []), url] } : p
@@ -166,30 +166,26 @@ export default function AddProductImage() {
 
       {/* Products list */}
       <div className="space-y-4">
-        {products.map((p) => {
-          console.log("Product:", p); // ✅ logs each product object
+        {products.map((p) => (
+          <div key={p.id} className="border p-4 rounded shadow">
+            <h2 className="font-semibold">{p.name}</h2>
+            <p>Barcode: {p.barcode}</p>
+            <p>Images Available: {p.images?.length || 0}</p>
 
-          return (
-            <div key={p.id} className="border p-4 rounded shadow">
-              <h2 className="font-semibold">{p.name}</h2>
-              <p>Barcode: {p.barcode}</p>
-              <p>Images Available: {p.images?.length || 0}</p>
-
-              <label className="block mt-2">
-                <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
-                  Add Image
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment" // ✅ mobile opens back camera
-                  hidden
-                  onChange={(e) => handleUpload(p.id, e)}
-                />
-              </label>
-            </div>
-          );
-        })}
+            <label className="block mt-2">
+              <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
+                Add Image
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={(e) => handleUpload(p.id, e)}
+              />
+            </label>
+          </div>
+        ))}
       </div>
 
       {uploading && <p className="text-blue-500">Uploading...</p>}
