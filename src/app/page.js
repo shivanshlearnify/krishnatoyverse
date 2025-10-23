@@ -21,6 +21,7 @@ export default function Home() {
           transition={{ duration: 0.8 }}
           className="max-w-4xl ml-36"
         >
+          <h3 className="text-white bg-[]">A unit of Krishna super mart</h3>      
           <h2 className="text-5xl font-extrabold text-[#8b1da7] drop-shadow-lg">
             Welcome to Krishna ToyVerse 🎮
           </h2>

@@ -16,20 +16,22 @@ const collections = [
 export default function ProductPage() {
   const dispatch = useDispatch();
 
-  // Redux data
-  const { productCollection, groups, brands, categories, subcategories, loading } = useSelector(
-    (state) => state.productData
-  );
+  const {
+    productCollection,
+    groups,
+    brands,
+    categories,
+    subcategories,
+    loading,
+  } = useSelector((state) => state.productData);
 
   const [activeTab, setActiveTab] = useState(collections[0].key);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Fetch once on mount
   useEffect(() => {
     dispatch(fetchAllData());
   }, [dispatch]);
 
-  // Select correct collection data based on active tab
   const getActiveData = () => {
     switch (activeTab) {
       case "brands":
@@ -48,14 +50,24 @@ export default function ProductPage() {
 
   const data = getActiveData();
 
-  const getNameById = (list, id) => list.find((item) => item.id === id)?.name || "-";
+  const getNameById = (list, id) =>
+    list.find((item) => item.id === id)?.name || "-";
+
+  // ✅ Count mapping for tabs
+  const tabCounts = {
+    productCollection: productCollection?.length || 0,
+    groups: groups?.length || 0,
+    brands: brands?.length || 0,
+    categories: categories?.length || 0,
+    subcategories: subcategories?.length || 0,
+  };
 
   return (
     <div className="p-6 flex gap-6 relative">
       {/* Left: Product List */}
       <div className="flex-1">
         {/* Tabs */}
-        <div className="flex gap-3 mb-6 border-b pb-2">
+        <div className="flex gap-3 mb-6 border-b pb-2 flex-wrap">
           {collections.map((tab) => (
             <button
               key={tab.key}
@@ -63,13 +75,23 @@ export default function ProductPage() {
                 setActiveTab(tab.key);
                 setSelectedProduct(null);
               }}
-              className={`px-4 py-2 rounded-t-md font-medium ${
+              className={`px-4 py-2 rounded-t-md font-medium flex items-center gap-2 ${
                 activeTab === tab.key
                   ? "bg-pink-500 text-white"
                   : "bg-gray-100 text-gray-700"
               }`}
             >
               {tab.name}
+              {/* Count Badge */}
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${
+                  activeTab === tab.key
+                    ? "bg-white text-pink-600"
+                    : "bg-gray-300 text-gray-800"
+                }`}
+              >
+                {tabCounts[tab.key]}
+              </span>
             </button>
           ))}
         </div>
@@ -87,14 +109,15 @@ export default function ProductPage() {
               >
                 <h2 className="font-semibold">{item.name}</h2>
 
-                {/* Product Details */}
                 {activeTab === "productCollection" && (
                   <>
                     <p>Barcode: {item.barcode}</p>
                     <p>Brand: {getNameById(brands, item.brand)}</p>
                     <p>Category: {getNameById(categories, item.category)}</p>
                     <p>Group: {getNameById(groups, item.group)}</p>
-                    <p>Subcategory: {getNameById(subcategories, item.subcategory)}</p>
+                    <p>
+                      Subcategory: {getNameById(subcategories, item.subcategory)}
+                    </p>
                   </>
                 )}
               </div>
@@ -115,7 +138,9 @@ export default function ProductPage() {
             >
               ✖
             </button>
-            <h2 className="text-xl font-semibold text-center mb-4">Edit Product</h2>
+            <h2 className="text-xl font-semibold text-center mb-4">
+              Edit Product
+            </h2>
             <UpdateProduct
               product={selectedProduct}
               onClose={() => setSelectedProduct(null)}
