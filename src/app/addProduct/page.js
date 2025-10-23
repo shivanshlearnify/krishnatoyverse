@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import {
   collection,
@@ -14,31 +14,23 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
 export default function AddProductImage() {
-  // ✅ Set default values here
-  const [searchType, setSearchType] = useState("barcode"); // default: barcode
-  const [barcodeMode, setBarcodeMode] = useState("scan"); // default: scan
+  const [searchType, setSearchType] = useState("barcode");
+  const [barcodeMode, setBarcodeMode] = useState("scan");
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [noProductFound, setNoProductFound] = useState(false);
 
   // 🔍 Search Firestore by barcode or name
-  const handleSearch = async () => {
-    if (!searchType || !searchQuery) {
-      alert("Please select search type and enter a query");
-      return;
-    }
+  const handleSearch = async (queryValue) => {
+    const value = queryValue || searchQuery;
+    if (!searchType || !value) return;
 
     let q;
     if (searchType === "barcode") {
-      q = query(
-        collection(db, "productCollection"),
-        where("barcode", "==", searchQuery)
-      );
+      q = query(collection(db, "productCollection"), where("barcode", "==", value));
     } else {
-      q = query(
-        collection(db, "productCollection"),
-        where("name", "==", searchQuery)
-      );
+      q = query(collection(db, "productCollection"), where("name", "==", value));
     }
 
     const snap = await getDocs(q);
@@ -46,7 +38,9 @@ export default function AddProductImage() {
       id: docSnap.id,
       ...docSnap.data(),
     }));
+
     setProducts(results);
+    setNoProductFound(results.length === 0);
   };
 
   // 📸 Upload image to Firebase Storage & save reference in Firestore
@@ -61,9 +55,7 @@ export default function AddProductImage() {
       const url = await getDownloadURL(storageRef);
 
       const productRef = doc(db, "productCollection", productId);
-      await updateDoc(productRef, {
-        images: arrayUnion(url),
-      });
+      await updateDoc(productRef, { images: arrayUnion(url) });
 
       setProducts((prev) =>
         prev.map((p) =>
@@ -80,6 +72,13 @@ export default function AddProductImage() {
     }
   };
 
+  // ✅ Automatically search when barcode scanned
+  useEffect(() => {
+    if (barcodeMode === "scan" && searchQuery) {
+      handleSearch(searchQuery);
+    }
+  }, [searchQuery]);
+
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-xl font-bold">Add Product Image</h1>
@@ -87,7 +86,11 @@ export default function AddProductImage() {
       {/* Search Type */}
       <div className="flex gap-4">
         <button
-          onClick={() => setSearchType("barcode")}
+          onClick={() => {
+            setSearchType("barcode");
+            setProducts([]);
+            setNoProductFound(false);
+          }}
           className={`px-4 py-2 rounded ${
             searchType === "barcode" ? "bg-blue-500 text-white" : "bg-gray-200"
           }`}
@@ -95,7 +98,11 @@ export default function AddProductImage() {
           Search by Barcode
         </button>
         <button
-          onClick={() => setSearchType("name")}
+          onClick={() => {
+            setSearchType("name");
+            setProducts([]);
+            setNoProductFound(false);
+          }}
           className={`px-4 py-2 rounded ${
             searchType === "name" ? "bg-blue-500 text-white" : "bg-gray-200"
           }`}
@@ -104,7 +111,7 @@ export default function AddProductImage() {
         </button>
       </div>
 
-      {/* Barcode search */}
+      {/* Barcode Search */}
       {searchType === "barcode" && (
         <div className="space-y-3">
           <div className="flex gap-2">
@@ -131,63 +138,80 @@ export default function AddProductImage() {
           </div>
 
           {barcodeMode === "type" && (
-            <input
-              type="text"
-              placeholder="Enter Barcode"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="border p-2 rounded w-full"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter Barcode"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="border p-2 rounded w-full"
+              />
+              <button
+                onClick={() => handleSearch()}
+                className="px-4 py-2 bg-green-600 text-white rounded"
+              >
+                Search
+              </button>
+            </div>
           )}
 
           {barcodeMode === "scan" && (
-            <div className="h-[400px] w-full">
+            <div className="h-[400px] w-full border rounded-lg overflow-hidden">
               <BarcodeScanner onScan={(code) => setSearchQuery(code)} />
             </div>
           )}
         </div>
       )}
 
-      {/* Name search */}
+      {/* Name Search */}
       {searchType === "name" && (
-        <input
-          type="text"
-          placeholder="Enter Item Name"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="border p-2 rounded w-full"
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Enter Item Name"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="border p-2 rounded w-full"
+          />
+          <button
+            onClick={() => handleSearch()}
+            className="px-4 py-2 bg-green-600 text-white rounded"
+          >
+            Search
+          </button>
+        </div>
       )}
 
-      <button
-        onClick={handleSearch}
-        className="px-4 py-2 bg-green-600 text-white rounded"
-      >
-        Search
-      </button>
+      {/* Product Results */}
+      <div className="space-y-4 mt-4">
+        {products.length > 0 ? (
+          products.map((p) => (
+            <div key={p.id} className="border p-4 rounded shadow">
+              <h2 className="font-semibold">{p.name}</h2>
+              <p>Barcode: {p.barcode}</p>
+              <p>Images Available: {p.images?.length || 0}</p>
 
-      {/* Products list */}
-      <div className="space-y-4">
-        {products.map((p) => (
-          <div key={p.id} className="border p-4 rounded shadow">
-            <h2 className="font-semibold">{p.name}</h2>
-            <p>Barcode: {p.barcode}</p>
-            <p>Images Available: {p.images?.length || 0}</p>
-
-            <label className="block mt-2">
-              <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
-                Add Image
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                hidden
-                onChange={(e) => handleUpload(p.id, e)}
-              />
-            </label>
-          </div>
-        ))}
+              <label className="block mt-2">
+                <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
+                  Add Image
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  hidden
+                  onChange={(e) => handleUpload(p.id, e)}
+                />
+              </label>
+            </div>
+          ))
+        ) : (
+          noProductFound && (
+            <p className="text-red-500 font-medium text-center">
+              ❌ No product found with this barcode
+            </p>
+          )
+        )}
       </div>
 
       {uploading && <p className="text-blue-500">Uploading...</p>}
