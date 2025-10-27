@@ -26,7 +26,7 @@ export default function Tabs({
           <span
             className={`text-xs px-2 py-1 rounded-full ${
               activeTab === tab.key
-                ? "bg-white text-pink-600"
+                ? "bg-white text-pink-800"
                 : "bg-gray-300 text-gray-800"
             }`}
           >
