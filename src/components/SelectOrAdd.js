@@ -1,43 +1,69 @@
-// src/components/SelectOrAdd.js
 "use client";
 
 import { useState } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-export function SelectOrAdd({ label, options, collectionName, value, onChange }) {
-  const [newItem, setNewItem] = useState("");
+export function SelectOrAdd({
+  label,
+  options = [],
+  value,
+  onChange,
+  collectionName,
+  onAddNew,
+}) {
   const [showAdd, setShowAdd] = useState(false);
+  const [newItem, setNewItem] = useState("");
 
   const handleAdd = async () => {
-    if (!newItem) return;
-    const docRef = await addDoc(collection(db, collectionName), { name: newItem });
-    onChange(docRef.id);
-    setNewItem("");
-    setShowAdd(false);
+    if (!newItem.trim()) return;
+
+    try {
+      // Add new value in Firestore
+      await addDoc(collection(db, collectionName), { name: newItem });
+
+      // ✅ Instantly show in dropdown
+      onAddNew?.(newItem);
+      setShowAdd(false);
+      setNewItem("");
+      alert(`${label} added successfully ✅`);
+    } catch (e) {
+      console.error(e);
+      alert("❌ Failed to add new value");
+    }
   };
 
   return (
     <div className="space-y-1">
       <label className="font-medium">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border rounded px-3 py-2"
-      >
-        <option value="">Select {label}</option>
-        {options.map((opt) => (
-          <option key={opt.id} value={opt.id}>
-            {opt.name || opt.id}
-          </option>
-        ))}
-      </select>
-      {showAdd ? (
-        <div className="flex gap-2 mt-1">
+
+      {!showAdd ? (
+        <select
+          value={value || ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "__custom__") {
+              setShowAdd(true);
+            } else {
+              onChange(val);
+            }
+          }}
+          className="w-full border rounded px-3 py-2"
+        >
+          <option value="">Select {label}</option>
+          {options.map((opt, idx) => (
+            <option key={`${opt}-${idx}`} value={opt}>
+              {opt}
+            </option>
+          ))}
+          <option value="__custom__">➕ Create new...</option>
+        </select>
+      ) : (
+        <div className="flex gap-2">
           <input
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
-            placeholder={`New ${label} name`}
+            placeholder={`New ${label}`}
             className="flex-1 border rounded px-2 py-1"
           />
           <button
@@ -47,13 +73,6 @@ export function SelectOrAdd({ label, options, collectionName, value, onChange })
             Add
           </button>
         </div>
-      ) : (
-        <button
-          onClick={() => setShowAdd(true)}
-          className="text-blue-600 text-sm mt-1 underline"
-        >
-          + Add new {label}
-        </button>
       )}
     </div>
   );

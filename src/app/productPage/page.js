@@ -62,7 +62,13 @@ export default function ProductPage() {
     };
 
     list.forEach((item) => {
-      const mappingKeys = ["category", "brand", "group", "subCategory", "supplier"];
+      const mappingKeys = [
+        "category",
+        "brand",
+        "group",
+        "subCategory",
+        "supplier",
+      ];
       mappingKeys.forEach((k) => {
         const val = item[k];
         if (val) {
@@ -123,28 +129,33 @@ export default function ProductPage() {
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {["all", "category", "brand", "group", "subCategory", "supplier"].map(
-              (tab) => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setSelectedValue(null);
-                    setBrowseTab(tab);
-                  }}
-                  className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
-                    browseTab === tab
-                      ? "bg-black text-white border-black"
-                      : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                  }`}
-                >
-                  {tab === "all"
-                    ? "All Products"
-                    : tab === "subCategory"
-                    ? "Subcategory"
-                    : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              )
-            )}
+            {[
+              "all",
+              "category",
+              "brand",
+              "group",
+              "subCategory",
+              "supplier",
+            ].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setSelectedValue(null);
+                  setBrowseTab(tab);
+                }}
+                className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
+                  browseTab === tab
+                    ? "bg-black text-white border-black"
+                    : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                }`}
+              >
+                {tab === "all"
+                  ? "All Products"
+                  : tab === "subCategory"
+                  ? "Subcategory"
+                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
           </div>
 
           {/*  All Products View */}
@@ -164,15 +175,23 @@ export default function ProductPage() {
                       className="border p-4 rounded-lg shadow hover:shadow-md cursor-pointer"
                       onClick={() => setSelectedProduct(item)}
                     >
-                      <h2 className="font-semibold text-gray-800">{item.name}</h2>
+                      <h2 className="font-semibold text-gray-800">
+                        {item.name}
+                      </h2>
                       <p className="text-sm text-gray-600">Code: {item.code}</p>
                       <p className="text-sm text-gray-600">MRP: ₹{item.mrp}</p>
-                      <p className="text-sm text-gray-600">Rate: ₹{item.rate}</p>
-                      <p className="text-sm text-gray-600">Brand: {item.brand}</p>
+                      <p className="text-sm text-gray-600">
+                        Rate: ₹{item.rate}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Brand: {item.brand}
+                      </p>
                       <p className="text-sm text-gray-600">
                         Category: {item.category}
                       </p>
-                      <p className="text-sm text-gray-600">Group: {item.group}</p>
+                      <p className="text-sm text-gray-600">
+                        Group: {item.group}
+                      </p>
                       <p className="text-sm text-gray-600">
                         Subcategory: {item.subCategory}
                       </p>
@@ -183,7 +202,9 @@ export default function ProductPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center">No products available.</p>
+                <p className="text-gray-500 text-center">
+                  No products available.
+                </p>
               )}
             </div>
           ) : !selectedValue ? (
@@ -197,7 +218,9 @@ export default function ProductPage() {
                     onClick={() => setSelectedValue(value)}
                     className="p-3 border rounded-lg shadow-sm hover:shadow-md cursor-pointer transition bg-white text-center"
                   >
-                    <h3 className="font-medium text-gray-800 truncate">{value}</h3>
+                    <h3 className="font-medium text-gray-800 truncate">
+                      {value}
+                    </h3>
                     <p className="text-xs text-gray-500">
                       {groupedData[browseTab][value]?.length || 0} items
                     </p>
@@ -220,27 +243,39 @@ export default function ProductPage() {
               </button>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(groupedData?.[browseTab]?.[selectedValue] || []).map((item) => (
-                  <div
-                    key={item.id}
-                    className="border p-4 rounded-lg shadow hover:shadow-md cursor-pointer"
-                    onClick={() => setSelectedProduct(item)}
-                  >
-                    <h2 className="font-semibold text-gray-800">{item.name}</h2>
-                    <p className="text-sm text-gray-600">Code: {item.code}</p>
-                    <p className="text-sm text-gray-600">MRP: ₹{item.mrp}</p>
-                    <p className="text-sm text-gray-600">Rate: ₹{item.rate}</p>
-                    <p className="text-sm text-gray-600">Brand: {item.brand}</p>
-                    <p className="text-sm text-gray-600">Category: {item.category}</p>
-                    <p className="text-sm text-gray-600">Group: {item.group}</p>
-                    <p className="text-sm text-gray-600">
-                      Subcategory: {item.subCategory}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Supplier: {item.supplier}
-                    </p>
-                  </div>
-                ))}
+                {(groupedData?.[browseTab]?.[selectedValue] || []).map(
+                  (item) => (
+                    <div
+                      key={item.id}
+                      className="border p-4 rounded-lg shadow hover:shadow-md cursor-pointer"
+                      onClick={() => setSelectedProduct(item)}
+                    >
+                      <h2 className="font-semibold text-gray-800">
+                        {item.name}
+                      </h2>
+                      <p className="text-sm text-gray-600">Code: {item.code}</p>
+                      <p className="text-sm text-gray-600">MRP: ₹{item.mrp}</p>
+                      <p className="text-sm text-gray-600">
+                        Rate: ₹{item.rate}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Brand: {item.brand}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Category: {item.category}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Group: {item.group}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Subcategory: {item.subCategory}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Supplier: {item.supplier}
+                      </p>
+                    </div>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -254,13 +289,16 @@ export default function ProductPage() {
             <div className="p-6 flex flex-col h-full">
               <button
                 onClick={() => setSelectedProduct(null)}
-                className="self-end text-gray-600 hover:text-black mb-4"
+                className="self-end text-gray-600 hover:text-black mb-4 cursor-pointer"
               >
                 ✖
               </button>
               <h2 className="text-xl font-semibold text-center mb-4">
                 Edit Product
               </h2>
+              <p className="text-center text-gray-700 font-medium mb-4">
+                {selectedProduct?.name || ""}
+              </p>
               <UpdateProduct
                 product={selectedProduct}
                 onClose={() => setSelectedProduct(null)}
