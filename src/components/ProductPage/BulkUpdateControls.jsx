@@ -1,3 +1,7 @@
+"use client";
+import { useSelector } from "react-redux";
+import { useState, useEffect } from "react";
+
 export default function BulkUpdateControls({
   searchWord,
   setSearchWord,
@@ -10,8 +14,30 @@ export default function BulkUpdateControls({
   onPreview,
   onConfirm,
 }) {
+  const dataState = useSelector((state) => state.productData);
+
+  // Local states
+  const [availableOptions, setAvailableOptions] = useState([]);
+  const [customMode, setCustomMode] = useState(false); // For "Create new" option
+
+  // Dynamically get available unique values from DB based on fieldToUpdate
+  useEffect(() => {
+    if (!dataState?.productCollection) return;
+
+    const uniqueSet = new Set();
+    dataState.productCollection.forEach((item) => {
+      const val = item[fieldToUpdate] || item[fieldToUpdate.toLowerCase()];
+      if (val) uniqueSet.add(val.trim());
+    });
+
+    setAvailableOptions([...uniqueSet]);
+    setCustomMode(false);
+    setNewValue("");
+  }, [fieldToUpdate, dataState]);
+
   return (
     <div className="flex flex-wrap gap-3 mb-4 items-center">
+      {/* Search Input */}
       <input
         type="text"
         placeholder="Enter word to match (e.g. Dove)"
@@ -19,6 +45,8 @@ export default function BulkUpdateControls({
         onChange={(e) => setSearchWord(e.target.value)}
         className="border p-2 rounded-md flex-1 min-w-[200px]"
       />
+
+      {/* Field Selection */}
       <select
         value={fieldToUpdate}
         onChange={(e) => setFieldToUpdate(e.target.value)}
@@ -27,15 +55,42 @@ export default function BulkUpdateControls({
         <option value="brand">brand</option>
         <option value="category">category</option>
         <option value="group">group</option>
-        <option value="subcategory">subcategory</option>
+        <option value="subCategory">subcategory</option>
       </select>
-      <input
-        type="text"
-        placeholder="New value (e.g. Dove)"
-        value={newValue}
-        onChange={(e) => setNewValue(e.target.value)}
-        className="border p-2 rounded-md w-40"
-      />
+
+      {/* Dynamic Value Selector */}
+      {!customMode ? (
+        <select
+          value={newValue}
+          onChange={(e) => {
+            if (e.target.value === "__custom__") {
+              setCustomMode(true);
+              setNewValue("");
+            } else {
+              setNewValue(e.target.value);
+            }
+          }}
+          className="border p-2 rounded-md min-w-[160px]"
+        >
+          <option value="">Select value</option>
+          {availableOptions.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+          <option value="__custom__">➕ Create new...</option>
+        </select>
+      ) : (
+        <input
+          type="text"
+          placeholder="Enter new value"
+          value={newValue}
+          onChange={(e) => setNewValue(e.target.value)}
+          className="border p-2 rounded-md min-w-[160px]"
+        />
+      )}
+
+      {/* Buttons */}
       <button
         onClick={onPreview}
         disabled={updating}
@@ -43,6 +98,7 @@ export default function BulkUpdateControls({
       >
         {updating ? "Checking..." : "Preview"}
       </button>
+
       {previewResults.length > 0 && (
         <button
           onClick={onConfirm}
