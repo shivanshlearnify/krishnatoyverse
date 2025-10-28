@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAllData } from "@/redux/productSlice";
 
@@ -9,7 +9,7 @@ import Tabs from "@/components/ProductPage/Tabs";
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";
 import PreviewList from "@/components/ProductPage/PreviewList";
 
-import { getActiveData, getNameById, getTabCounts } from "@/utils/dataHelpers";
+import { getActiveData, getTabCounts } from "@/utils/dataHelpers";
 import { handlePreview, handleConfirmUpdate } from "@/utils/handleBulkActions";
 
 const collections = [
@@ -31,9 +31,14 @@ export default function ProductPage() {
     categories,
     subcategories,
     loading,
-  } = dataState;
+  } = dataState || {};
 
+  // main tab (for top section: controls, preview, etc.)
   const [activeTab, setActiveTab] = useState(collections[0].key);
+
+  // browse tab (for the grouped browser UI). Keeps browsing isolated from top tabs.
+  const [browseTab, setBrowseTab] = useState("category");
+
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Bulk update states
@@ -43,7 +48,10 @@ export default function ProductPage() {
   const [previewResults, setPreviewResults] = useState([]);
   const [updating, setUpdating] = useState(false);
 
-  // Fetch all data on load
+  // Grouped data states
+  const [selectedValue, setSelectedValue] = useState(null);
+
+  // Fetch all data on mount
   useEffect(() => {
     dispatch(fetchAllData());
   }, [dispatch]);
@@ -51,7 +59,30 @@ export default function ProductPage() {
   const data = getActiveData(activeTab, dataState);
   const tabCounts = getTabCounts(dataState);
 
-  // 🔹 Step 1: Preview & Step 2: Confirm
+  // Build groupedData once (category, brand, group, subCategory)
+  const groupedData = useMemo(() => {
+    // ensure we have an array, otherwise return empty buckets
+    const list = Array.isArray(productCollection) ? productCollection : [];
+    const buckets = { category: {}, brand: {}, group: {}, subCategory: {} };
+
+    list.forEach((item) => {
+      // Use the exact keys used in your product objects.
+      // If your DB uses lowercase 'subcategory' instead of 'subCategory' adjust here.
+      const mappingKeys = ["category", "brand", "group", "subCategory"];
+
+      mappingKeys.forEach((k) => {
+        const val = item[k];
+        if (val) {
+          if (!buckets[k][val]) buckets[k][val] = [];
+          buckets[k][val].push(item);
+        }
+      });
+    });
+
+    return buckets;
+  }, [productCollection]);
+
+  // Preview & Confirm handlers (keep your implementations)
   const previewHandler = () =>
     handlePreview({
       activeTab,
@@ -73,7 +104,6 @@ export default function ProductPage() {
       dispatch,
       setPreviewResults,
     });
-console.log(data);
 
   return (
     <div className="p-6 flex gap-6 relative">
@@ -103,34 +133,87 @@ console.log(data);
 
         <PreviewList previewResults={previewResults} />
 
-        {/* Products Grid */}
-        {loading ? (
-          <p>Loading...</p>
-        ) : data?.length ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {data.map((item) => (
-              <div
-                key={item.id}
-                className="border p-4 rounded-lg shadow hover:shadow-md cursor-pointer"
-                onClick={() => setSelectedProduct(item)}
+        {/* 🔹 Category / Brand / Group / Subcategory Browser */}
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold mb-3 text-gray-800">
+            Browse Products
+          </h2>
+
+          {/* Tabs for choosing grouping (uses browseTab, not activeTab) */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {["category", "brand", "group", "subCategory"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setSelectedValue(null);
+                  setBrowseTab(tab);
+                }}
+                className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
+                  browseTab === tab
+                    ? "bg-black text-white border-black"
+                    : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                }`}
               >
-                <h2 className="font-semibold">{item.name}</h2>
-                {activeTab === "productCollection" && (
-                  <>
-                    <p>Brand: {item.brand}</p>
-                    <p>Category: {item.category}</p>
-                    <p>Group: {item.group}</p>
-                    <p>
-                      Subcategory: {item.subcategory}
-                    </p>
-                  </>
-                )}
-              </div>
+                {tab}
+              </button>
             ))}
           </div>
-        ) : (
-          <p>No items found.</p>
-        )}
+
+          {/* Display grouped items safely */}
+          {!selectedValue ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {groupedData?.[browseTab] &&
+              Object.keys(groupedData[browseTab] || {}).length > 0 ? (
+                Object.keys(groupedData[browseTab]).map((value) => (
+                  <div
+                    key={value}
+                    onClick={() => setSelectedValue(value)}
+                    className="p-3 border rounded-lg shadow-sm hover:shadow-md cursor-pointer transition bg-white text-center"
+                  >
+                    <h3 className="font-medium text-gray-800 truncate">{value}</h3>
+                    <p className="text-xs text-gray-500">
+                      {groupedData[browseTab][value]?.length || 0} items
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="col-span-full text-gray-500 text-center">
+                  No data found for this section.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <button
+                onClick={() => setSelectedValue(null)}
+                className="mb-4 text-blue-600 hover:underline text-sm"
+              >
+                ← Back
+              </button>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {(groupedData?.[browseTab]?.[selectedValue] || []).map((item) => (
+                  <div
+                    key={item.id}
+                    className="border p-4 rounded-lg shadow hover:shadow-md cursor-pointer"
+                    onClick={() => setSelectedProduct(item)}
+                  >
+                    <h2 className="font-semibold text-gray-800">{item.name}</h2>
+                    <p className="text-sm text-gray-600">Code: {item.code}</p>
+                    <p className="text-sm text-gray-600">MRP: ₹{item.mrp}</p>
+                    <p className="text-sm text-gray-600">Rate: ₹{item.rate}</p>
+                    <p className="text-sm text-gray-600">Brand: {item.brand}</p>
+                    <p className="text-sm text-gray-600">Category: {item.category}</p>
+                    <p className="text-sm text-gray-600">Group: {item.group}</p>
+                    <p className="text-sm text-gray-600">
+                      Subcategory: {item.subCategory}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right: Sliding Edit Panel */}
