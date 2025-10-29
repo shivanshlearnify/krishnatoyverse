@@ -1,10 +1,50 @@
 "use client";
-import React from "react";
+
+import React, { useEffect, useState } from "react";
 import ExcelUploader from "@/components/ExcelUploader";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function AdminPage() {
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      const userRef = doc(db, "users", user.uid);
+      const snap = await getDoc(userRef);
+
+      // ❌ Not an admin → redirect to /home
+      if (!snap.exists() || snap.data().role !== "admin") {
+        router.push("/home");
+        return;
+      }
+
+      // ✅ User verified as admin
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-600">
+        Checking admin access...
+      </div>
+    );
+  }
+
+  // ✅ Only admin can see this section
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       {/* Header */}
