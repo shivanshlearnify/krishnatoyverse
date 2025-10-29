@@ -70,8 +70,7 @@ export default function AdminPage() {
           Upload Excel File
         </h2>
         <p className="text-sm text-gray-600 mb-6">
-          Please ensure your Excel file follows the proper product data format
-          before uploading.
+          Please ensure your Excel file follows the proper product data format.
         </p>
         <ExcelUploader />
       </div>
