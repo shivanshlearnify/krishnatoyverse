@@ -14,21 +14,20 @@ export default function PhoneAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
 
-    // Wait until Firebase auth is ready
-    import("firebase/auth").then(({ RecaptchaVerifier }) => {
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(
-          auth,
-          "recaptcha-container",
-          {
-            size: "invisible",
-          }
-        );
-      }
+  if (!window.recaptchaVerifier) {
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+      size: "invisible",
+      callback: (response) => {
+        console.log("reCAPTCHA verified ✅", response);
+      },
+      "expired-callback": () => {
+        console.warn("reCAPTCHA expired. Please try again.");
+      },
     });
-  }, []);
+  }
+}, []);
 
   // ✅ Send OTP to the phone number
   const handleSendOtp = async () => {
