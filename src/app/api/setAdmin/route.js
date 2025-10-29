@@ -1,15 +1,28 @@
-import admin from "firebase-admin";
+import { admin } from "@/lib/firebaseAdmin";
 
-if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(
-    Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, "base64").toString("utf8")
-  );
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const { uid, phoneNumber, secret } = body;
 
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
+    if (secret !== process.env.ADMIN_SECRET) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401 }
+      );
+    }
 
-export async function GET() {
-  return Response.json({ message: "Admin initialized successfully" });
+    await admin.auth().setCustomUserClaims(uid, { isAdmin: true });
+
+    return new Response(
+      JSON.stringify({ success: true, uid, phoneNumber }),
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error setting admin:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500 }
+    );
+  }
 }

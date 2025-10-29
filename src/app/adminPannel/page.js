@@ -6,11 +6,11 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -20,16 +20,16 @@ export default function AdminPage() {
         return;
       }
 
-      const userRef = doc(db, "users", user.uid);
-      const snap = await getDoc(userRef);
+      // 🔍 Get the user's token and check admin claim
+      const tokenResult = await user.getIdTokenResult(true);
+      const admin = tokenResult.claims.isAdmin;
 
-      // ❌ Not an admin → redirect to /home
-      if (!snap.exists() || snap.data().role !== "admin") {
+      if (!admin) {
         router.push("/home");
         return;
       }
 
-      // ✅ User verified as admin
+      setIsAdmin(true);
       setLoading(false);
     });
 
@@ -45,6 +45,14 @@ export default function AdminPage() {
   }
 
   // ✅ Only admin can see this section
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-600">
+        Access Denied
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       {/* Header */}
