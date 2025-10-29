@@ -16,6 +16,9 @@ import { handlePreview, handleConfirmUpdate } from "@/utils/handleBulkActions";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase"; // adjust path if needed
+import ProductCard from "@/components/ProductPage/ProductCard";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 const collections = [
   { name: "Product Collection", key: "productCollection" },
@@ -29,8 +32,14 @@ const collections = [
 export default function ProductPage() {
   const dispatch = useDispatch();
   const dataState = useSelector((state) => state.productData);
-  const { productCollection, groups, brands, categories, subcategories, loading } =
-    dataState || {};
+  const {
+    productCollection,
+    groups,
+    brands,
+    categories,
+    subcategories,
+    loading,
+  } = dataState || {};
 
   // 🔹 States
   const [activeTab, setActiveTab] = useState(collections[0].key);
@@ -93,13 +102,15 @@ export default function ProductPage() {
     };
 
     list.forEach((item) => {
-      ["category", "brand", "group", "subCategory", "supplier"].forEach((key) => {
-        const val = item[key];
-        if (val) {
-          if (!buckets[key][val]) buckets[key][val] = [];
-          buckets[key][val].push(item);
+      ["category", "brand", "group", "subCategory", "supplier"].forEach(
+        (key) => {
+          const val = item[key];
+          if (val) {
+            if (!buckets[key][val]) buckets[key][val] = [];
+            buckets[key][val].push(item);
+          }
         }
-      });
+      );
     });
     return buckets;
   }, [productCollection]);
@@ -176,35 +187,50 @@ export default function ProductPage() {
         <PreviewList previewResults={previewResults} />
 
         {/* 🔹 Product Browser */}
+        
         <div className="mt-6">
+          <div className="flex gap-4 mb-2">
+
           <h2 className="text-lg font-semibold mb-3 text-gray-800">
             Browse Products
           </h2>
+          <Link
+            href="/adminPannel"
+            className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
+            >
+            Go to Admin Panel <ArrowRight size={16} />
+          </Link>
+            </div>
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {["all", "category", "brand", "group", "subCategory", "supplier"].map(
-              (tab) => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setSelectedValue(null);
-                    setBrowseTab(tab);
-                  }}
-                  className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
-                    browseTab === tab
-                      ? "bg-black text-white border-black"
-                      : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                  }`}
-                >
-                  {tab === "all"
-                    ? "All Products"
-                    : tab === "subCategory"
-                    ? "Subcategory"
-                    : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              )
-            )}
+            {[
+              "all",
+              "category",
+              "brand",
+              "group",
+              "subCategory",
+              "supplier",
+            ].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setSelectedValue(null);
+                  setBrowseTab(tab);
+                }}
+                className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
+                  browseTab === tab
+                    ? "bg-black text-white border-black"
+                    : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                }`}
+              >
+                {tab === "all"
+                  ? "All Products"
+                  : tab === "subCategory"
+                  ? "Subcategory"
+                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
           </div>
 
           {/* 🔹 All Products */}
@@ -231,42 +257,13 @@ export default function ProductPage() {
               {displayedProducts.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {displayedProducts.map((item) => (
-                    <div
-                      key={item.id}
-                      className="border p-4 rounded-lg shadow hover:shadow-md cursor-pointer"
-                      onClick={() => setSelectedProduct(item)}
-                    >
-                      <h2 className="font-semibold text-gray-800">{item.name}</h2>
-                      <p className="text-sm text-gray-600">Code: {item.code}</p>
-                      <p className="text-sm text-gray-600">MRP: ₹{item.mrp}</p>
-                      <p className="text-sm text-gray-600">Rate: ₹{item.rate}</p>
-                      <p className="text-sm text-gray-600">Brand: {item.brand}</p>
-                      <p className="text-sm text-gray-600">
-                        Category: {item.category}
-                      </p>
-                      <p className="text-sm text-gray-600">Group: {item.group}</p>
-                      <p className="text-sm text-gray-600">
-                        Subcategory: {item.subCategory}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Supplier: {item.supplier}
-                      </p>
-                      <label className="block mt-3">
-                        <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
-                          Add Image
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          hidden
-                          onChange={(e) => handleUpload(item.id, e)}
-                        />
-                      </label>
-                      {uploading && (
-                        <p className="text-blue-500 mt-2 text-sm">Uploading...</p>
-                      )}
-                    </div>
+                    <ProductCard
+                      key={item.code}
+                      item={item}
+                      uploading={uploading}
+                      onUpload={handleUpload}
+                      onEdit={setSelectedProduct}
+                    />
                   ))}
                 </div>
               ) : (
@@ -286,7 +283,9 @@ export default function ProductPage() {
                     onClick={() => setSelectedValue(value)}
                     className="p-3 border rounded-lg shadow-sm hover:shadow-md cursor-pointer bg-white text-center"
                   >
-                    <h3 className="font-medium text-gray-800 truncate">{value}</h3>
+                    <h3 className="font-medium text-gray-800 truncate">
+                      {value}
+                    </h3>
                     <p className="text-xs text-gray-500">
                       {groupedData[browseTab][value]?.length || 0} items
                     </p>
@@ -308,44 +307,17 @@ export default function ProductPage() {
                 ← Back
               </button>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(groupedData?.[browseTab]?.[selectedValue] || []).map((item) => (
-                  <div
-                    key={item.id}
-                    className="border p-4 rounded-lg shadow hover:shadow-md cursor-pointer"
-                    onClick={() => setSelectedProduct(item)}
-                  >
-                    <h2 className="font-semibold text-gray-800">{item.name}</h2>
-                    <p className="text-sm text-gray-600">Code: {item.code}</p>
-                    <p className="text-sm text-gray-600">MRP: ₹{item.mrp}</p>
-                    <p className="text-sm text-gray-600">Rate: ₹{item.rate}</p>
-                    <p className="text-sm text-gray-600">Brand: {item.brand}</p>
-                    <p className="text-sm text-gray-600">
-                      Category: {item.category}
-                    </p>
-                    <p className="text-sm text-gray-600">Group: {item.group}</p>
-                    <p className="text-sm text-gray-600">
-                      Subcategory: {item.subCategory}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Supplier: {item.supplier}
-                    </p>
-                    <label className="block mt-3">
-                      <span className="px-3 py-1 bg-blue-500 text-white rounded cursor-pointer">
-                        Add Image
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        hidden
-                        onChange={(e) => handleUpload(item.id, e)}
-                      />
-                    </label>
-                    {uploading && (
-                      <p className="text-blue-500 mt-2 text-sm">Uploading...</p>
-                    )}
-                  </div>
-                ))}
+                {(groupedData?.[browseTab]?.[selectedValue] || []).map(
+                  (item) => (
+                    <ProductCard
+                      key={item.code}
+                      item={item}
+                      uploading={uploading}
+                      onUpload={handleUpload}
+                      onEdit={setSelectedProduct}
+                    />
+                  )
+                )}
               </div>
             </div>
           )}
