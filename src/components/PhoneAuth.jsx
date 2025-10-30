@@ -39,7 +39,7 @@ export default function PhoneAuth() {
       );
     }
 
-    // Optional cleanup if component unmounts
+    // Cleanup if component unmounts
     return () => {
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.clear();
@@ -85,22 +85,14 @@ export default function PhoneAuth() {
         await setDoc(userRef, {
           uid: user.uid,
           phone: user.phoneNumber,
-          role: "customer",
           createdAt: new Date(),
         });
         alert("Welcome new customer 🎉");
-        router.push("/");
-        return;
-      }
-
-      const role = snap.data().role;
-      if (role === "admin") {
-        alert("Welcome Admin 👑");
-        router.push("/admin/dashboard");
       } else {
         alert("Welcome back 🛍️");
-        router.push("/");
       }
+
+      router.push("/");
     } catch (error) {
       console.error("Error verifying OTP:", error);
       alert("Invalid OTP ❌");

@@ -2,23 +2,23 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAllData } from "@/redux/productSlice";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
+import { fetchAllData } from "@/redux/productSlice";
 import debounce from "lodash.debounce";
 import UpdateProduct from "@/components/UpdateProduct";
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";
 import PreviewList from "@/components/ProductPage/PreviewList";
+import ProductCard from "@/components/ProductPage/ProductCard";
 
 import { getActiveData, getTabCounts } from "@/utils/dataHelpers";
 import { handlePreview, handleConfirmUpdate } from "@/utils/handleBulkActions";
 
-// 🔹 Firebase imports
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
-import { storage, db } from "@/lib/firebase"; // adjust path if needed
-import ProductCard from "@/components/ProductPage/ProductCard";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { storage, db } from "@/lib/firebase";
 
 const collections = [
   { name: "Product Collection", key: "productCollection" },
@@ -30,6 +30,12 @@ const collections = [
 ];
 
 export default function ProductPage() {
+  // 🔒 Auth states
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
+
+  // ✅ Redux setup
   const dispatch = useDispatch();
   const dataState = useSelector((state) => state.productData);
   const {
@@ -41,32 +47,41 @@ export default function ProductPage() {
     loading,
   } = dataState || {};
 
-  // 🔹 States
+  // ✅ Local UI states
   const [activeTab, setActiveTab] = useState(collections[0].key);
   const [browseTab, setBrowseTab] = useState("category");
   const [selectedProduct, setSelectedProduct] = useState(null);
-
   const [searchWord, setSearchWord] = useState("");
   const [fieldToUpdate, setFieldToUpdate] = useState("brand");
   const [newValue, setNewValue] = useState("");
   const [previewResults, setPreviewResults] = useState([]);
   const [updating, setUpdating] = useState(false);
   const [selectedValue, setSelectedValue] = useState(null);
-
-  // 🔹 Search-specific
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
 
-  // 🔹 Fetch data initially
+  // 🔐 Check admin login
   useEffect(() => {
-    dispatch(fetchAllData());
-  }, [dispatch]);
+    const user = localStorage.getItem("user");
+    if (user) {
+      setIsAuthenticated(true);
+    } else {
+      router.push("/adminlogin");
+    }
+    setLoadingAuth(false);
+  }, [router]);
 
+  // 🔄 Fetch data after authentication
+  useEffect(() => {
+    if (isAuthenticated) dispatch(fetchAllData());
+  }, [dispatch, isAuthenticated]);
+
+  // 🧮 Helpers
   const data = getActiveData(activeTab, dataState);
   const tabCounts = getTabCounts(dataState);
 
-  // 🔹 Debounced Search Handler
+  // 🔍 Debounced Search
   const handleSearch = useMemo(
     () =>
       debounce((term) => {
@@ -85,12 +100,11 @@ export default function ProductPage() {
     [productCollection]
   );
 
-  // 🔹 Trigger search
   useEffect(() => {
     handleSearch(searchTerm);
   }, [searchTerm, handleSearch]);
 
-  // 🔹 Grouped Data for Browsing
+  // 📦 Grouped Data
   const groupedData = useMemo(() => {
     const list = Array.isArray(productCollection) ? productCollection : [];
     const buckets = {
@@ -115,7 +129,7 @@ export default function ProductPage() {
     return buckets;
   }, [productCollection]);
 
-  // 🔹 Bulk Update Handlers
+  // 🧰 Bulk Update Handlers
   const previewHandler = () =>
     handlePreview({
       activeTab,
@@ -138,7 +152,7 @@ export default function ProductPage() {
       setPreviewResults,
     });
 
-  // 🔹 Upload Handler
+  // 📤 Image Upload Handler
   const handleUpload = async (productId, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -153,7 +167,7 @@ export default function ProductPage() {
       await updateDoc(productRef, { images: arrayUnion(url) });
 
       alert("✅ Image uploaded successfully!");
-      dispatch(fetchAllData()); // refresh data after upload
+      dispatch(fetchAllData());
     } catch (err) {
       console.error(err);
       alert("❌ Error uploading image");
@@ -162,14 +176,26 @@ export default function ProductPage() {
     }
   };
 
-  // 🔹 Displayed products
   const displayedProducts =
     searchTerm.trim() !== "" ? filteredProducts : productCollection || [];
 
+  // 🔒 Auth Loading State
+  if (loadingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-gray-700">
+        Checking authentication...
+      </div>
+    );
+  }
+
+  // 🚫 Redirect if not authenticated
+  if (!isAuthenticated) return null;
+
+  // ✅ Protected Page Render
   return (
     <div className="p-6 flex gap-6 relative">
       <div className="flex-1">
-        {/* 🔹 Bulk Update Controls */}
+        {/* Bulk Update Controls */}
         <BulkUpdateControls
           searchWord={searchWord}
           setSearchWord={setSearchWord}
@@ -183,57 +209,49 @@ export default function ProductPage() {
           onConfirm={confirmHandler}
         />
 
-        {/* 🔹 Preview Results */}
         <PreviewList previewResults={previewResults} />
 
-        {/* 🔹 Product Browser */}
-        
+        {/* Product Browser */}
         <div className="mt-6">
           <div className="flex gap-4 mb-2">
-
-          <h2 className="text-lg font-semibold mb-3 text-gray-800">
-            Browse Products
-          </h2>
-          <Link
-            href="/adminPannel"
-            className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
+            <h2 className="text-lg font-semibold mb-3 text-gray-800">
+              Browse Products
+            </h2>
+            <Link
+              href="/adminPannel"
+              className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
             >
-            Go to Admin Panel <ArrowRight size={16} />
-          </Link>
-            </div>
+              Go to Admin Panel <ArrowRight size={16} />
+            </Link>
+          </div>
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {[
-              "all",
-              "category",
-              "brand",
-              "group",
-              "subCategory",
-              "supplier",
-            ].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => {
-                  setSelectedValue(null);
-                  setBrowseTab(tab);
-                }}
-                className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
-                  browseTab === tab
-                    ? "bg-black text-white border-black"
-                    : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                }`}
-              >
-                {tab === "all"
-                  ? "All Products"
-                  : tab === "subCategory"
-                  ? "Subcategory"
-                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
+            {["all", "category", "brand", "group", "subCategory", "supplier"].map(
+              (tab) => (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setSelectedValue(null);
+                    setBrowseTab(tab);
+                  }}
+                  className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
+                    browseTab === tab
+                      ? "bg-black text-white border-black"
+                      : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                  }`}
+                >
+                  {tab === "all"
+                    ? "All Products"
+                    : tab === "subCategory"
+                    ? "Subcategory"
+                    : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              )
+            )}
           </div>
 
-          {/* 🔹 All Products */}
+          {/* Display Products */}
           {browseTab === "all" ? (
             <div>
               <div className="flex items-center gap-4">
@@ -242,7 +260,6 @@ export default function ProductPage() {
                     ? `Search Results (${displayedProducts.length})`
                     : `All Products (${displayedProducts.length})`}
                 </h3>
-                {/* 🔹 Search Input */}
                 <div className="mt-6 mb-4">
                   <input
                     type="text"
@@ -273,7 +290,6 @@ export default function ProductPage() {
               )}
             </div>
           ) : !selectedValue ? (
-            // 🔹 Grouped View
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {groupedData?.[browseTab] &&
               Object.keys(groupedData[browseTab] || {}).length > 0 ? (
@@ -298,7 +314,6 @@ export default function ProductPage() {
               )}
             </div>
           ) : (
-            // 🔸 Products inside a selected group
             <div>
               <button
                 onClick={() => setSelectedValue(null)}
@@ -324,7 +339,7 @@ export default function ProductPage() {
         </div>
       </div>
 
-      {/* 🔹 Right Panel for Editing */}
+      {/* Right-side Edit Panel */}
       {selectedProduct && (
         <>
           <div className="fixed inset-y-0 right-0 w-full md:w-1/3 bg-white shadow-xl z-50">
