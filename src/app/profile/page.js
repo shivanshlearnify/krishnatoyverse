@@ -1,6 +1,6 @@
 "use client";
-import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../hooks/useAuth";
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
