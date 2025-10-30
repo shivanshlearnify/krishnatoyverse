@@ -11,35 +11,27 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 export default function PhoneAuth() {
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("+91"); // ✅ Default prefix
   const [otp, setOtp] = useState("");
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const router = useRouter();
-
   const auth = getAuth();
 
-  // ✅ Initialize invisible reCAPTCHA
+  // ✅ Initialize invisible reCAPTCHA once
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        "sign-in-button", // element ID
-        {
-          size: "invisible",
-          callback: (response) => {
-            console.log("reCAPTCHA verified ✅", response);
-          },
-          "expired-callback": () => {
-            console.warn("reCAPTCHA expired. Please try again.");
-          },
-        }
-      );
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, "sign-in-button", {
+        size: "invisible",
+        callback: () => console.log("reCAPTCHA verified ✅"),
+        "expired-callback": () => console.warn("reCAPTCHA expired"),
+      });
     }
 
-    // Cleanup if component unmounts
     return () => {
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.clear();
@@ -49,32 +41,40 @@ export default function PhoneAuth() {
   }, [auth]);
 
   const handleSendOtp = async () => {
-    if (!phone) return alert("Enter your phone number");
-    setLoading(true);
+    setError("");
+    setMessage("");
 
+    if (!phone || !phone.startsWith("+91") || phone.length < 13) {
+      setError("Please enter a valid Indian phone number (+91XXXXXXXXXX)");
+      return;
+    }
+
+    setLoading(true);
     try {
       const appVerifier = window.recaptchaVerifier;
       if (!appVerifier) throw new Error("reCAPTCHA not initialized");
 
-      const confirmation = await signInWithPhoneNumber(
-        auth,
-        phone,
-        appVerifier
-      );
+      const confirmation = await signInWithPhoneNumber(auth, phone, appVerifier);
       setConfirmationResult(confirmation);
-      alert("OTP sent ✅");
+      setMessage("OTP sent successfully ✅");
     } catch (error) {
       console.error("Error sending OTP:", error);
-      alert(error.message);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp) return alert("Enter OTP");
-    setLoading(true);
+    setError("");
+    setMessage("");
 
+    if (!otp) {
+      setError("Please enter the OTP");
+      return;
+    }
+
+    setLoading(true);
     try {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
@@ -87,15 +87,13 @@ export default function PhoneAuth() {
           phone: user.phoneNumber,
           createdAt: new Date(),
         });
-        alert("Welcome new customer 🎉");
-      } else {
-        alert("Welcome back 🛍️");
       }
 
+      setMessage("Login successful 🎉");
       router.push("/");
     } catch (error) {
       console.error("Error verifying OTP:", error);
-      alert("Invalid OTP ❌");
+      setError("Invalid OTP. Please try again ❌");
     } finally {
       setLoading(false);
     }
@@ -107,6 +105,13 @@ export default function PhoneAuth() {
         <h1 className="text-2xl font-bold mb-4 text-center">
           Login with Phone
         </h1>
+
+        {message && (
+          <p className="text-green-600 text-center text-sm mb-3">{message}</p>
+        )}
+        {error && (
+          <p className="text-red-600 text-center text-sm mb-3">{error}</p>
+        )}
 
         {!confirmationResult ? (
           <>
@@ -148,3 +153,4 @@ export default function PhoneAuth() {
     </div>
   );
 }
+
