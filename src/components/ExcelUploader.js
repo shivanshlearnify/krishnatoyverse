@@ -111,12 +111,12 @@ export default function ExcelUploader() {
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 w-2xl">
       <input
         type="file"
         accept=".xlsx, .xls"
         onChange={handleFileUpload}
-        className="border p-2"
+        className="border p-2 w-[40%]"
       />
 
       {error && <p className="text-red-600 font-semibold">{error}</p>}

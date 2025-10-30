@@ -49,7 +49,7 @@ export default function ProductPage() {
 
   // ✅ Local UI states
   const [activeTab, setActiveTab] = useState(collections[0].key);
-  const [browseTab, setBrowseTab] = useState("category");
+  const [browseTab, setBrowseTab] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchWord, setSearchWord] = useState("");
   const [fieldToUpdate, setFieldToUpdate] = useState("brand");

@@ -39,8 +39,8 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className="md:flex items-center justify-between mb-8">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-sm text-gray-600 mt-1">
             Upload and manage product data via Excel sheets.
