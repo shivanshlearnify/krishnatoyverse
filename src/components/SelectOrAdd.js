@@ -1,36 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 export function SelectOrAdd({
   label,
   options = [],
   value,
   onChange,
-  collectionName,
-  onAddNew,
+  onAddNew, // optional callback to handle new item externally
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newItem, setNewItem] = useState("");
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!newItem.trim()) return;
 
-    try {
-      // Add new value in Firestore
-      await addDoc(collection(db, collectionName), { name: newItem });
+    // ✅ Instantly update dropdown and trigger parent callback
+    onAddNew?.(newItem);
+    onChange(newItem);
 
-      // ✅ Instantly show in dropdown
-      onAddNew?.(newItem);
-      setShowAdd(false);
-      setNewItem("");
-      alert(`${label} added successfully ✅`);
-    } catch (e) {
-      console.error(e);
-      alert("❌ Failed to add new value");
-    }
+    // Reset local UI
+    setShowAdd(false);
+    setNewItem("");
+
+    alert(`${label} added successfully ✅`);
   };
 
   return (
@@ -71,6 +64,12 @@ export function SelectOrAdd({
             className="bg-green-600 text-white px-3 py-1 rounded"
           >
             Add
+          </button>
+          <button
+            onClick={() => setShowAdd(false)}
+            className="bg-gray-400 text-white px-3 py-1 rounded"
+          >
+            Cancel
           </button>
         </div>
       )}
