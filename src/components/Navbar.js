@@ -20,7 +20,7 @@ export default function Navbar() {
 
           {/* Desktop Links */}
           <div className="hidden md:flex space-x-6">
-            <Link href="/services" className="hover:text-[#c650e4] cursor-pointer transition text-2xl font-bold text-[#c650e4d3]">
+            <Link href="/login" className="hover:text-[#c650e4] cursor-pointer transition text-2xl font-bold text-[#c650e4d3]">
               Login
             </Link>
             <Link href="/contact" className="hover:text-[#c650e4] cursor-pointer text-2xl transition font-bold text-[#c650e4d3]">

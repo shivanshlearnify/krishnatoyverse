@@ -8,13 +8,13 @@ export default function Home() {
   return (
     <>
       <div className="min-h-[80vh] text-[#F9FAFB] flex flex-col justify-center px-4">
-        <Image
+        {/* <Image
           src="/toyBannerBg.png"
           alt="Toy Store Banner"
           width={600}
           height={500}
           className="absolute top-0 right-40"
-        />
+        /> */}
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

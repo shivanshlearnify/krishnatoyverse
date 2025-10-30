@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import {
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  getAuth,
+} from "firebase/auth";
+import { db } from "@/lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
@@ -13,33 +17,45 @@ export default function PhoneAuth() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const auth = getAuth();
+
+  // ✅ Initialize invisible reCAPTCHA
   useEffect(() => {
-  if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
 
-  if (!window.recaptchaVerifier) {
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
-      callback: (response) => {
-        console.log("reCAPTCHA verified ✅", response);
-      },
-      "expired-callback": () => {
-        console.warn("reCAPTCHA expired. Please try again.");
-      },
-    });
-  }
-}, []);
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        auth,
+        "sign-in-button", // element ID
+        {
+          size: "invisible",
+          callback: (response) => {
+            console.log("reCAPTCHA verified ✅", response);
+          },
+          "expired-callback": () => {
+            console.warn("reCAPTCHA expired. Please try again.");
+          },
+        }
+      );
+    }
 
-  // ✅ Send OTP to the phone number
+    // Optional cleanup if component unmounts
+    return () => {
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        delete window.recaptchaVerifier;
+      }
+    };
+  }, [auth]);
+
   const handleSendOtp = async () => {
     if (!phone) return alert("Enter your phone number");
     setLoading(true);
 
     try {
       const appVerifier = window.recaptchaVerifier;
-      if (!appVerifier) {
-        alert("Recaptcha not ready. Please refresh.");
-        return;
-      }
+      if (!appVerifier) throw new Error("reCAPTCHA not initialized");
+
       const confirmation = await signInWithPhoneNumber(
         auth,
         phone,
@@ -55,7 +71,6 @@ export default function PhoneAuth() {
     }
   };
 
-  // ✅ Verify OTP and handle login logic
   const handleVerifyOtp = async () => {
     if (!otp) return alert("Enter OTP");
     setLoading(true);
@@ -63,11 +78,9 @@ export default function PhoneAuth() {
     try {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
-
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
 
-      // Create user if new
       if (!snap.exists()) {
         await setDoc(userRef, {
           uid: user.uid,
@@ -76,18 +89,17 @@ export default function PhoneAuth() {
           createdAt: new Date(),
         });
         alert("Welcome new customer 🎉");
-        router.push("/home");
+        router.push("/");
         return;
       }
 
-      // Redirect existing users based on role
       const role = snap.data().role;
       if (role === "admin") {
         alert("Welcome Admin 👑");
         router.push("/admin/dashboard");
       } else {
         alert("Welcome back 🛍️");
-        router.push("/home");
+        router.push("/");
       }
     } catch (error) {
       console.error("Error verifying OTP:", error);
@@ -104,8 +116,7 @@ export default function PhoneAuth() {
           Login with Phone
         </h1>
 
-        {/* Phone Number Input */}
-        {!confirmationResult && (
+        {!confirmationResult ? (
           <>
             <input
               type="tel"
@@ -115,6 +126,7 @@ export default function PhoneAuth() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-3"
             />
             <button
+              id="sign-in-button"
               onClick={handleSendOtp}
               disabled={loading}
               className="w-full bg-pink-600 hover:bg-pink-700 text-white rounded-lg py-2 transition-all"
@@ -122,10 +134,7 @@ export default function PhoneAuth() {
               {loading ? "Sending..." : "Send OTP"}
             </button>
           </>
-        )}
-
-        {/* OTP Input */}
-        {confirmationResult && (
+        ) : (
           <>
             <input
               type="text"
@@ -143,8 +152,6 @@ export default function PhoneAuth() {
             </button>
           </>
         )}
-
-        <div id="recaptcha-container"></div>
       </div>
     </div>
   );
