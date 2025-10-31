@@ -27,6 +27,7 @@ const collections = [
   { name: "Category", key: "categories" },
   { name: "Subcategory", key: "subcategories" },
   { name: "Supplier", key: "suppliers" },
+  { name: "Invoice", key: "suppinvo" },
 ];
 
 export default function ProductPage() {
@@ -113,10 +114,11 @@ export default function ProductPage() {
       group: {},
       subCategory: {},
       supplier: {},
+      suppinvo: {},
     };
 
     list.forEach((item) => {
-      ["category", "brand", "group", "subCategory", "supplier"].forEach(
+      ["category", "brand", "group", "subCategory", "supplier", "suppinvo"].forEach(
         (key) => {
           const val = item[key];
           if (val) {
@@ -227,7 +229,7 @@ export default function ProductPage() {
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {["all", "category", "brand", "group", "subCategory", "supplier"].map(
+            {["all", "category", "brand", "group", "subCategory", "supplier","suppinvo"].map(
               (tab) => (
                 <button
                   key={tab}

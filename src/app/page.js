@@ -1,5 +1,6 @@
 "use client";
 
+import AllProducts from "@/components/AllProducts";
 import ShopByCategorySection from "@/components/Home/ShopByCategorySection";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -39,7 +40,8 @@ export default function Home() {
           </div>
         </motion.section>
       </div>
-      <ShopByCategorySection />
+      {/* <ShopByCategorySection /> */}
+      <AllProducts/>
     </>
   );
 }
