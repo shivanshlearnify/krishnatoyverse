@@ -4,8 +4,7 @@ import cartReducer from "./cartSlice";
 
 export const store = configureStore({
   reducer: {
-    productData: productReducer,
+    products: productReducer, 
     cart: cartReducer,
-    products: productReducer,
   },
 });

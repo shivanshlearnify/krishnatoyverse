@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { SelectOrAdd } from "@/components/SelectOrAdd";
-import { fetchAllData } from "@/redux/productSlice";
+import { fetchAllData } from "@/redux/adminProductSlice";
 
 export default function UpdateProduct({ product, onClose }) {
   const dispatch = useDispatch();

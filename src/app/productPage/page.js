@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-import { fetchAllData } from "@/redux/productSlice";
+import { fetchAllData } from "@/redux/adminProductSlice";
 import debounce from "lodash.debounce";
 import UpdateProduct from "@/components/UpdateProduct";
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";

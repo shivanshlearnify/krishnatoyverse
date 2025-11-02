@@ -1,7 +1,7 @@
-"use client";
+// app/layout.js
 import "./globals.css";
-import { Provider } from "react-redux";
-import { store } from "@/redux/store";
+import Providers from "./providers";
+import CartSyncProvider from "@/components/CartSyncProvider";
 import Navbar from "@/components/Navbar";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 
@@ -9,11 +9,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <Provider store={store}>
-          <Navbar />
-          <ScrollToTopButton/>
-          {children}
-        </Provider>
+        <Providers>
+          <CartSyncProvider>
+            <Navbar />
+            <main className="min-h-screen pt-20">{children}</main>
+            <ScrollToTopButton />
+          </CartSyncProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -107,7 +107,7 @@ export default function Navbar() {
             )}
 
             <Link
-              href="/cart"
+              href="/cartPage"
               className="block text-lg font-semibold text-[#c650e4d3] hover:text-[#c650e4]"
             >
               Cart (0)

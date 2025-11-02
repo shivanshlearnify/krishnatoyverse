@@ -9,6 +9,7 @@ import {
 import { db } from "@/lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function PhoneAuth() {
   const [phone, setPhone] = useState("+91"); // ✅ Default prefix
@@ -20,7 +21,7 @@ export default function PhoneAuth() {
   const router = useRouter();
   const auth = getAuth();
 
-  // ✅ Initialize invisible reCAPTCHA once
+  // Initialize invisible reCAPTCHA once
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -34,7 +35,11 @@ export default function PhoneAuth() {
 
     return () => {
       if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          // ignore cleanup errors
+        }
         delete window.recaptchaVerifier;
       }
     };
@@ -57,42 +62,114 @@ export default function PhoneAuth() {
       const confirmation = await signInWithPhoneNumber(auth, phone, appVerifier);
       setConfirmationResult(confirmation);
       setMessage("OTP sent successfully ✅");
-    } catch (error) {
-      console.error("Error sending OTP:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Error sending OTP:", err);
+      setError(err.message || "Failed to send OTP");
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * waitForCartMerge:
+   * Polls the Firestore cart doc for a recent updatedAt timestamp (>= signInTime).
+   * - If cart doc updatedAt >= signInTime => assume merge + write done.
+   * - If no cart doc exists, resolve immediately (fresh user).
+   * - Times out after timeoutMs.
+   */
+  const waitForCartMerge = async (uid, signInTime, timeoutMs = 15000, pollInterval = 600) => {
+    if (!uid) return; // defensive
+    const cartDocRef = doc(db, "users", uid, "cart");
+
+    const start = Date.now();
+    while (true) {
+      try {
+        const snap = await getDoc(cartDocRef);
+        if (!snap.exists()) {
+          // no server cart — treat as OK (first-time user)
+          return true;
+        }
+        const data = snap.data();
+        const updatedAt = data?.updatedAt;
+        if (updatedAt && typeof updatedAt.toMillis === "function") {
+          const ts = updatedAt.toMillis();
+          // if server updatedAt is at-or-after signInTime (minus small margin), consider merged
+          if (ts >= signInTime - 1000) {
+            return true;
+          }
+        } else if (updatedAt && typeof updatedAt === "number") {
+          // fallback if stored as epoch
+          if (updatedAt >= signInTime - 1000) return true;
+        } else {
+          // if updatedAt missing, but doc exists, consider it OK
+          return true;
+        }
+      } catch (err) {
+        console.error("waitForCartMerge getDoc error:", err);
+        // swallow and continue polling until timeout
+      }
+
+      if (Date.now() - start > timeoutMs) {
+        // timed out
+        return false;
+      }
+      // wait then retry
+      await new Promise((r) => setTimeout(r, pollInterval));
     }
   };
 
   const handleVerifyOtp = async () => {
     setError("");
     setMessage("");
+    setLoading(true);
 
     if (!otp) {
       setError("Please enter the OTP");
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
     try {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
-      const userRef = doc(db, "users", user.uid);
-      const snap = await getDoc(userRef);
 
-      if (!snap.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          phone: user.phoneNumber,
-          createdAt: new Date(),
-        });
+      // ensure user doc exists
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+          await setDoc(userRef, {
+            uid: user.uid,
+            phone: user.phoneNumber,
+            createdAt: new Date(),
+          });
+        }
+      } catch (dbErr) {
+        console.error("Error ensuring user doc:", dbErr);
       }
 
       setMessage("Login successful 🎉");
+      toast.success("Logged in — syncing your cart...");
+
+      // Wait for the cart merge to complete.
+      // Record signInTime to compare with server cart updatedAt
+      const signInTime = Date.now();
+
+      // Wait for merge (use 15s timeout). If merge completes, navigate; otherwise fallback after timeout.
+      const merged = await waitForCartMerge(user.uid, signInTime, 15000, 600);
+
+      if (merged) {
+        // merged successfully (server cart has updatedAt >= signInTime)
+        toast.success("Cart synced. Redirecting…");
+      } else {
+        // timed out — still proceed but inform user
+        toast("Cart sync timed out. It will finish in background.", { icon: "⏳" });
+      }
+
+      // Finally navigate to home (or change path to your desired landing page)
       router.push("/");
-    } catch (error) {
-      console.error("Error verifying OTP:", error);
+    } catch (err) {
+      console.error("Error verifying OTP:", err);
       setError("Invalid OTP. Please try again ❌");
     } finally {
       setLoading(false);
@@ -153,4 +230,3 @@ export default function PhoneAuth() {
     </div>
   );
 }
-

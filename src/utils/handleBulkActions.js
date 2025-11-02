@@ -1,5 +1,5 @@
 import { bulkUpdatePreview } from "@/utils/bulkUpdatePreview";
-import { fetchAllData } from "@/redux/productSlice";
+import { fetchAllData } from "@/redux/adminProductSlice";
 
 export const handlePreview = async ({
   activeTab,
