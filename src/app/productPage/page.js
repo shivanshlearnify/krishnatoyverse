@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-import { fetchAllData } from "@/redux/adminProductSlice";
 import debounce from "lodash.debounce";
 import UpdateProduct from "@/components/UpdateProduct";
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";
@@ -19,6 +18,7 @@ import { handlePreview, handleConfirmUpdate } from "@/utils/handleBulkActions";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
+import { fetchAllData } from "@/redux/adminProductSlice";
 
 const collections = [
   { name: "Product Collection", key: "productCollection" },
@@ -38,15 +38,18 @@ export default function ProductPage() {
 
   // ✅ Redux setup
   const dispatch = useDispatch();
-  const dataState = useSelector((state) => state.productData);
+  const dataState = useSelector((state) => state.adminProducts) || {};
   const {
-    productCollection,
-    groups,
-    brands,
-    categories,
-    subcategories,
-    loading,
-  } = dataState || {};
+  productCollection = [],
+  brands = [],
+  categories = [],
+  groups = [],
+  subcategories = [],
+  suppliers = [],
+  suppinvo = [],
+  loading = false,
+} = useSelector((state) => state.adminProducts);
+
 
   // ✅ Local UI states
   const [activeTab, setActiveTab] = useState(collections[0].key);
@@ -61,6 +64,12 @@ export default function ProductPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
+
+  const fullStore = useSelector((state) => state);
+
+  useEffect(() => {
+    console.log("🧠 ENTIRE REDUX STORE:", fullStore);
+  }, [fullStore]);
 
   // 🔐 Check admin login
   useEffect(() => {
@@ -79,8 +88,8 @@ export default function ProductPage() {
   }, [dispatch, isAuthenticated]);
 
   // 🧮 Helpers
-  const data = getActiveData(activeTab, dataState);
-  const tabCounts = getTabCounts(dataState);
+  const data = getActiveData(activeTab, dataState || {});
+  const tabCounts = getTabCounts(dataState || {});
 
   // 🔍 Debounced Search
   const handleSearch = useMemo(
@@ -118,15 +127,20 @@ export default function ProductPage() {
     };
 
     list.forEach((item) => {
-      ["category", "brand", "group", "subCategory", "supplier", "suppinvo"].forEach(
-        (key) => {
-          const val = item[key];
-          if (val) {
-            if (!buckets[key][val]) buckets[key][val] = [];
-            buckets[key][val].push(item);
-          }
+      [
+        "category",
+        "brand",
+        "group",
+        "subCategory",
+        "supplier",
+        "suppinvo",
+      ].forEach((key) => {
+        const val = item[key];
+        if (val) {
+          if (!buckets[key][val]) buckets[key][val] = [];
+          buckets[key][val].push(item);
         }
-      );
+      });
     });
     return buckets;
   }, [productCollection]);
@@ -178,8 +192,9 @@ export default function ProductPage() {
     }
   };
 
-  const displayedProducts =
-    searchTerm.trim() !== "" ? filteredProducts : productCollection || [];
+  const displayedProducts = searchTerm.trim()
+    ? filteredProducts
+    : productCollection;
 
   // 🔒 Auth Loading State
   if (loadingAuth) {
@@ -229,28 +244,34 @@ export default function ProductPage() {
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {["all", "category", "brand", "group", "subCategory", "supplier","suppinvo"].map(
-              (tab) => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setSelectedValue(null);
-                    setBrowseTab(tab);
-                  }}
-                  className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
-                    browseTab === tab
-                      ? "bg-black text-white border-black"
-                      : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                  }`}
-                >
-                  {tab === "all"
-                    ? "All Products"
-                    : tab === "subCategory"
-                    ? "Subcategory"
-                    : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              )
-            )}
+            {[
+              "all",
+              "category",
+              "brand",
+              "group",
+              "subCategory",
+              "supplier",
+              "suppinvo",
+            ].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setSelectedValue(null);
+                  setBrowseTab(tab);
+                }}
+                className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
+                  browseTab === tab
+                    ? "bg-black text-white border-black"
+                    : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                }`}
+              >
+                {tab === "all"
+                  ? "All Products"
+                  : tab === "subCategory"
+                  ? "Subcategory"
+                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
           </div>
 
           {/* Display Products */}

@@ -100,6 +100,7 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
           <input
             type="file"
             accept="image/*"
+            capture="environment" // 👈 Opens back camera on mobile
             hidden
             onChange={(e) => onUpload(item.id, e)}
           />

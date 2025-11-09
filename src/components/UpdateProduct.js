@@ -9,7 +9,7 @@ import { fetchAllData } from "@/redux/adminProductSlice";
 
 export default function UpdateProduct({ product, onClose }) {
   const dispatch = useDispatch();
-  const dataState = useSelector((state) => state.productData);
+  const dataState = useSelector((state) => state.products);
 
   const [form, setForm] = useState({
     brand: "",

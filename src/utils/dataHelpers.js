@@ -1,4 +1,6 @@
 export const getActiveData = (activeTab, dataState) => {
+  if (!dataState) return [];
+
   const { brands, categories, groups, subcategories, productCollection } = dataState;
 
   switch (activeTab) {
@@ -16,11 +18,12 @@ export const getActiveData = (activeTab, dataState) => {
   }
 };
 
+
 // ✅ Since you store names directly — just return the value safely
 export const getNameById = (_, value) => value || "-";
 
 // ✅ Count helper for badges/tabs
-export const getTabCounts = (dataState) => ({
+export const getTabCounts = (dataState = {}) => ({
   productCollection: dataState.productCollection?.length || 0,
   brands: dataState.brands?.length || 0,
   categories: dataState.categories?.length || 0,

@@ -14,7 +14,7 @@ export default function BulkUpdateControls({
   onPreview,
   onConfirm,
 }) {
-  const dataState = useSelector((state) => state.productData);
+  const dataState = useSelector((state) => state.products);
 
   // Local states
   const [availableOptions, setAvailableOptions] = useState([]);
