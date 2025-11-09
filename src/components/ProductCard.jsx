@@ -6,7 +6,8 @@ import { addToCart } from "@/redux/cartSlice";
 export default function ProductCard({ product }) {
   const dispatch = useDispatch();
 
-  const image = product?.imageS?.[0] || "/placeholder.jpg";
+  // ✅ Correct key: images
+  const image = product?.images?.[0] || "/placeholder.png";
 
   return (
     <div className="p-4 shadow-lg rounded-lg border hover:shadow-xl transition">

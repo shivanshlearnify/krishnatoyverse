@@ -8,15 +8,18 @@ import ProductCard from "@/components/ProductCard"; // ✅ import it
 export default function AllProducts() {
   const dispatch = useDispatch();
 
-  const { data = [], loading, error, lastVisibleId } = useSelector(
-    (state) => state.products ?? {}
-  );
+  const {
+    data = [],
+    loading,
+    error,
+    lastVisibleId,
+  } = useSelector((state) => state.products ?? {});
 
   console.log("FROM COMPONENT:", { data, loading, error, lastVisibleId });
 
   useEffect(() => {
     dispatch(clearProducts());
-    dispatch(fetchProducts({ pageSize: 20 }));
+    dispatch(fetchProducts({ pageSize: 5000 }));
   }, []);
 
   const handleLoadMore = () => {
@@ -26,6 +29,16 @@ export default function AllProducts() {
     }
   };
 
+  // ✅ Sort only once & log
+  const sortedProducts = [...data].sort(
+    (a, b) => (b.images?.length || 0) - (a.images?.length || 0)
+  );
+
+  console.log("✅ Sorted Products:", sortedProducts);
+
+  // Optional: show name + image count only
+  console.log(sortedProducts);
+
   return (
     <div className="p-4">
       <h1 className="text-2xl font-semibold mb-4">All Products</h1>
@@ -33,9 +46,9 @@ export default function AllProducts() {
       {loading && data.length === 0 && <p>Loading...</p>}
       {error && <p className="text-red-500">Error: {error}</p>}
 
-      {/* ✅ Use ProductCard */}
+      {/* ✅ Render Products */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {data.map((product) => (
+        {sortedProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
