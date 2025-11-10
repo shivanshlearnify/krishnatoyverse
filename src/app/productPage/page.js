@@ -50,7 +50,7 @@ export default function ProductPage() {
     suppliers = [],
     suppinvo = [],
     loading = false,
-  } = useSelector((state) => state.adminProducts);
+  } = dataState
 
   // ✅ Local UI states
   const [activeTab, setActiveTab] = useState(collections[0].key);
@@ -66,11 +66,7 @@ export default function ProductPage() {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
 
-  const fullStore = useSelector((state) => state);
-
-  useEffect(() => {
-    console.log("🧠 ENTIRE REDUX STORE:", fullStore);
-  }, [fullStore]);
+ 
 
   // 🔐 Check admin login
   useEffect(() => {

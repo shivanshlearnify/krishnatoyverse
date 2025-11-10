@@ -108,7 +108,7 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
           capture="environment"
           hidden
           onChange={(e) => {
-            e.preventDefault();
+            e.stopPropagation();
             onUpload(item.id, e);
             e.target.value = ""; // reset for next capture
           }}
