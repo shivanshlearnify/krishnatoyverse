@@ -19,7 +19,6 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
 
   const inputRef = useRef(null);
 
-  // Preview effect
   useEffect(() => {
     if (!file) return setPreview(null);
     const url = URL.createObjectURL(file);
@@ -27,7 +26,6 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // Resize image to reduce memory usage on mobile
   const resizeImage = (file, maxWidth = 1024, maxHeight = 1024) =>
     new Promise((resolve, reject) => {
       const img = new Image();
@@ -61,21 +59,19 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
     if (!f) return;
 
     if (!f.type.startsWith("image/")) {
-      setError("Please capture a valid image.");
+      setError("Please select a valid image.");
       return;
     }
 
     setFile(f);
     setError("");
     setSuccess("");
-
-    // Reset input for multiple captures
-    e.target.value = null;
+    e.target.value = null; // reset input for multiple uploads
   };
 
   const handleUpload = async () => {
     if (!file) {
-      setError("Please capture an image first.");
+      setError("Please select an image first.");
       return;
     }
 
@@ -85,7 +81,6 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
     setSuccess("");
 
     try {
-      // Resize image before upload
       const resizedFile = await resizeImage(file);
 
       const timestamp = Date.now();
@@ -110,13 +105,11 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
         async () => {
           const url = await getDownloadURL(uploadTask.snapshot.ref);
 
-          // Append URL to Firestore
           const prodRef = doc(db, "productCollection", product.id);
           await updateDoc(prodRef, { images: arrayUnion(url) });
 
           if (onUploaded) onUploaded(url);
 
-          // Reset modal state for next upload
           setUploading(false);
           setFile(null);
           setPreview(null);
@@ -156,7 +149,7 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
         {/* Body */}
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Capture Image (camera only)
+            Select Image (camera or gallery)
           </label>
 
           {/* Hidden input */}
@@ -164,7 +157,6 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             ref={inputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             style={{ display: "none" }}
             onChange={handleFileChange}
             disabled={uploading}
@@ -177,7 +169,7 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
           >
-            {file ? "Change Image" : "Capture Image"}
+            {file ? "Change Image" : "Select Image"}
           </button>
 
           {/* Preview */}
