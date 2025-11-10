@@ -19,17 +19,42 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
 
   const inputRef = useRef(null);
 
+  // Preview effect
   useEffect(() => {
-    if (!file) {
-      setPreview(null);
-      return;
-    }
-
+    if (!file) return setPreview(null);
     const url = URL.createObjectURL(file);
     setPreview(url);
-
     return () => URL.revokeObjectURL(url);
   }, [file]);
+
+  // Resize image to reduce memory usage on mobile
+  const resizeImage = (file, maxWidth = 1024, maxHeight = 1024) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = width * ratio;
+          height = height * ratio;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            resolve(new File([blob], file.name, { type: file.type }));
+          },
+          file.type,
+          0.8
+        );
+      };
+      img.onerror = (err) => reject(err);
+      img.src = URL.createObjectURL(file);
+    });
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0];
@@ -40,11 +65,11 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
       return;
     }
 
+    setFile(f);
     setError("");
     setSuccess("");
-    setFile(f);
 
-    // Reset input so same file can be selected again
+    // Reset input for multiple captures
     e.target.value = null;
   };
 
@@ -60,11 +85,14 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
     setSuccess("");
 
     try {
+      // Resize image before upload
+      const resizedFile = await resizeImage(file);
+
       const timestamp = Date.now();
       const path = `productImages/${product.id}/${timestamp}.jpg`;
       const sRef = storageRef(storage, path);
 
-      const uploadTask = uploadBytesResumable(sRef, file);
+      const uploadTask = uploadBytesResumable(sRef, resizedFile);
 
       uploadTask.on(
         "state_changed",
@@ -82,14 +110,13 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
         async () => {
           const url = await getDownloadURL(uploadTask.snapshot.ref);
 
-          // Update Firestore
+          // Append URL to Firestore
           const prodRef = doc(db, "productCollection", product.id);
           await updateDoc(prodRef, { images: arrayUnion(url) });
 
-          // Notify parent
           if (onUploaded) onUploaded(url);
 
-          // Reset state for next upload
+          // Reset modal state for next upload
           setUploading(false);
           setFile(null);
           setPreview(null);
@@ -132,7 +159,7 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             Capture Image (camera only)
           </label>
 
-          {/* Hidden file input */}
+          {/* Hidden input */}
           <input
             ref={inputRef}
             type="file"
