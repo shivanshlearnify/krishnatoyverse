@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { storage, db } from "@/lib/firebase";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import {
+  ref as storageRef,
+  uploadBytesResumable,
+  getDownloadURL,
+} from "firebase/storage";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 
 export default function ImageUploadModal({ product, onClose, onUploaded }) {
@@ -11,26 +15,31 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     if (!file) {
       setPreview(null);
       return;
     }
+
     const url = URL.createObjectURL(file);
     setPreview(url);
+
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
   const handleFileChange = (e) => {
     setError("");
+    setSuccess("");
     const f = e.target.files?.[0];
     if (!f) return;
-    // Optional: validate type/size
+
     if (!f.type.startsWith("image/")) {
       setError("Please capture a valid image.");
       return;
     }
+
     setFile(f);
   };
 
@@ -41,6 +50,7 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
     }
 
     setError("");
+    setSuccess("");
     setUploading(true);
     setProgress(0);
 
@@ -66,15 +76,18 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
         },
         async () => {
           const url = await getDownloadURL(uploadTask.snapshot.ref);
-          // Append to Firestore images array
+
           const prodRef = doc(db, "productCollection", product.id);
-          await updateDoc(prodRef, {
-            images: arrayUnion(url)
-          });
+          await updateDoc(prodRef, { images: arrayUnion(url) });
+
+          // Update parent if provided
+          if (onUploaded) onUploaded(url);
+
           setUploading(false);
           setFile(null);
+          setPreview(null);
           setProgress(0);
-          if (onUploaded) onUploaded(url);
+          setSuccess("✅ Image uploaded successfully!");
         }
       );
     } catch (err) {
@@ -85,41 +98,44 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
   };
 
   return (
-    // Modal backdrop
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
         className="absolute inset-0 bg-black/40"
-        onClick={() => {
-          if (!uploading) onClose();
-        }}
+        onClick={() => !uploading && onClose()}
       />
 
       <div className="relative bg-white w-full max-w-lg mx-4 rounded-lg shadow-xl z-10 p-5">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Add Image — {product.name}</h2>
           <button
-            onClick={() => {
-              if (!uploading) onClose();
-            }}
+            onClick={() => !uploading && onClose()}
             className="text-gray-500 hover:text-gray-700"
-            aria-label="Close"
           >
             ✕
           </button>
         </div>
 
+        {/* Body */}
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Capture Image (camera only)
           </label>
 
-          {/* Camera-only file input */}
           <input
             type="file"
             accept="image/*"
             capture="environment"
-            onChange={handleFileChange}
-            className="block w-full"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setFile(f);
+              setPreview(URL.createObjectURL(f));
+              setError("");
+              setSuccess("");
+              // Reset input value so user can take another photo
+              e.target.value = null;
+            }}
             disabled={uploading}
           />
 
@@ -136,6 +152,7 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
           )}
 
           {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+          {success && <p className="text-sm text-green-600 mt-2">{success}</p>}
 
           {uploading && (
             <div className="mt-3">
@@ -149,8 +166,10 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             </div>
           )}
 
+          {/* Buttons */}
           <div className="mt-5 flex gap-2">
             <button
+              type="button"
               onClick={handleUpload}
               disabled={uploading}
               className={`flex-1 px-4 py-2 rounded-md text-white ${
@@ -161,10 +180,13 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 if (!uploading) {
                   setFile(null);
                   setPreview(null);
+                  setSuccess("");
+                  setError("");
                 }
               }}
               className="px-4 py-2 rounded-md border"

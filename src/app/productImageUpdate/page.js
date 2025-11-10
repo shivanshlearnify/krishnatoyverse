@@ -14,6 +14,12 @@ export default function ProductImageUpdate() {
   const products = useSelector(
     (state) => state.adminProducts?.productCollection ?? []
   );
+  const handleImageUploaded = (url) => {
+    setSelectedProduct((prev) => ({
+      ...prev,
+      images: [...(prev.images || []), url],
+    }));
+  };
 
   useEffect(() => {
     dispatch(fetchAllData());
@@ -114,6 +120,7 @@ export default function ProductImageUpdate() {
               <button
                 onClick={() => setSelectedProduct(product)}
                 className="w-full bg-[#691080] text-white px-3 py-2 rounded-md hover:bg-[#55105f] mt-3"
+                type="button"
               >
                 Add Images
               </button>
@@ -127,7 +134,7 @@ export default function ProductImageUpdate() {
         <ImageUploadModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onUploaded={() => setSelectedProduct(null)}
+          onUploaded={handleImageUploaded}
         />
       )}
 
