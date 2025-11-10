@@ -19,7 +19,7 @@ export default function AllProducts() {
 
   useEffect(() => {
     dispatch(clearProducts());
-    dispatch(fetchProducts({ pageSize: 5000 }));
+    dispatch(fetchProducts({ pageSize: 20 }));
   }, []);
 
   const handleLoadMore = () => {
