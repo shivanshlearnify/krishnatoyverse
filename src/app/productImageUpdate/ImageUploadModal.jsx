@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { storage, db } from "@/lib/firebase";
 import {
   ref as storageRef,
@@ -17,6 +17,8 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const inputRef = useRef(null);
+
   useEffect(() => {
     if (!file) {
       setPreview(null);
@@ -30,8 +32,6 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
   }, [file]);
 
   const handleFileChange = (e) => {
-    setError("");
-    setSuccess("");
     const f = e.target.files?.[0];
     if (!f) return;
 
@@ -40,7 +40,12 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
       return;
     }
 
+    setError("");
+    setSuccess("");
     setFile(f);
+
+    // Reset input so same file can be selected again
+    e.target.value = null;
   };
 
   const handleUpload = async () => {
@@ -49,10 +54,10 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
       return;
     }
 
-    setError("");
-    setSuccess("");
     setUploading(true);
     setProgress(0);
+    setError("");
+    setSuccess("");
 
     try {
       const timestamp = Date.now();
@@ -77,12 +82,14 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
         async () => {
           const url = await getDownloadURL(uploadTask.snapshot.ref);
 
+          // Update Firestore
           const prodRef = doc(db, "productCollection", product.id);
           await updateDoc(prodRef, { images: arrayUnion(url) });
 
-          // Update parent if provided
+          // Notify parent
           if (onUploaded) onUploaded(url);
 
+          // Reset state for next upload
           setUploading(false);
           setFile(null);
           setPreview(null);
@@ -99,16 +106,19 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40"
         onClick={() => !uploading && onClose()}
       />
 
+      {/* Modal */}
       <div className="relative bg-white w-full max-w-lg mx-4 rounded-lg shadow-xl z-10 p-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Add Image — {product.name}</h2>
           <button
+            type="button"
             onClick={() => !uploading && onClose()}
             className="text-gray-500 hover:text-gray-700"
           >
@@ -122,23 +132,28 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             Capture Image (camera only)
           </label>
 
+          {/* Hidden file input */}
           <input
+            ref={inputRef}
             type="file"
             accept="image/*"
             capture="environment"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              setFile(f);
-              setPreview(URL.createObjectURL(f));
-              setError("");
-              setSuccess("");
-              // Reset input value so user can take another photo
-              e.target.value = null;
-            }}
+            style={{ display: "none" }}
+            onChange={handleFileChange}
             disabled={uploading}
           />
 
+          {/* Trigger button */}
+          <button
+            type="button"
+            className="w-full px-4 py-2 bg-[#691080] text-white rounded-md hover:bg-[#55105f]"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+          >
+            {file ? "Change Image" : "Capture Image"}
+          </button>
+
+          {/* Preview */}
           {preview && (
             <div className="mt-4">
               <div className="w-full h-64 bg-gray-100 rounded-md overflow-hidden">
@@ -151,9 +166,11 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             </div>
           )}
 
+          {/* Messages */}
           {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
           {success && <p className="text-sm text-green-600 mt-2">{success}</p>}
 
+          {/* Progress */}
           {uploading && (
             <div className="mt-3">
               <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -166,14 +183,16 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
             </div>
           )}
 
-          {/* Buttons */}
+          {/* Upload / Clear buttons */}
           <div className="mt-5 flex gap-2">
             <button
               type="button"
               onClick={handleUpload}
-              disabled={uploading}
+              disabled={uploading || !file}
               className={`flex-1 px-4 py-2 rounded-md text-white ${
-                uploading ? "bg-gray-400" : "bg-[#691080] hover:bg-[#55105f]"
+                uploading || !file
+                  ? "bg-gray-400"
+                  : "bg-[#691080] hover:bg-[#55105f]"
               }`}
             >
               {uploading ? "Uploading..." : "Upload Image"}
@@ -185,8 +204,8 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
                 if (!uploading) {
                   setFile(null);
                   setPreview(null);
-                  setSuccess("");
                   setError("");
+                  setSuccess("");
                 }
               }}
               className="px-4 py-2 rounded-md border"
