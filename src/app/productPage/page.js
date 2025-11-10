@@ -179,8 +179,9 @@ export default function ProductPage() {
     try {
       // ✅ Compress image before upload
       const compressedFile = await imageCompression(file, {
-        maxSizeMB: 1, // Try to keep file below 1MB
-        maxWidthOrHeight: 1280, // Resize to max 1280px
+        maxSizeMB: 0.6, // Target ≈ 600 KB
+        maxWidthOrHeight: 1280, // Reduce huge resolution
+        maxIteration: 15,
         useWebWorker: true,
       });
 
