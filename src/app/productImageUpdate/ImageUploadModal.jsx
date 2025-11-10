@@ -156,7 +156,7 @@ export default function ImageUploadModal({ product, onClose, onUploaded }) {
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept="image/*" // Only images
             style={{ display: "none" }}
             onChange={handleFileChange}
             disabled={uploading}
