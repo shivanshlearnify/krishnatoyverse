@@ -29,7 +29,6 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
       await updateDoc(productRef, { images: arrayRemove(url) });
 
       alert("✅ Image deleted successfully!");
-      window.location.reload();
     } catch (err) {
       console.error(err);
       alert("❌ Error deleting image");
