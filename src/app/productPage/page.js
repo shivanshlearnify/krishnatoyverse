@@ -20,6 +20,8 @@ import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
 import { fetchAllData } from "@/redux/adminProductSlice";
 
+import imageCompression from "browser-image-compression";
+
 const collections = [
   { name: "Product Collection", key: "productCollection" },
   { name: "Group", key: "groups" },
@@ -40,16 +42,15 @@ export default function ProductPage() {
   const dispatch = useDispatch();
   const dataState = useSelector((state) => state.adminProducts) || {};
   const {
-  productCollection = [],
-  brands = [],
-  categories = [],
-  groups = [],
-  subcategories = [],
-  suppliers = [],
-  suppinvo = [],
-  loading = false,
-} = useSelector((state) => state.adminProducts);
-
+    productCollection = [],
+    brands = [],
+    categories = [],
+    groups = [],
+    subcategories = [],
+    suppliers = [],
+    suppinvo = [],
+    loading = false,
+  } = useSelector((state) => state.adminProducts);
 
   // ✅ Local UI states
   const [activeTab, setActiveTab] = useState(collections[0].key);
@@ -172,11 +173,24 @@ export default function ProductPage() {
   const handleUpload = async (productId, e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     setUploading(true);
 
     try {
-      const storageRef = ref(storage, `products/${productId}/${file.name}`);
-      await uploadBytes(storageRef, file);
+      // ✅ Compress image before upload
+      const compressedFile = await imageCompression(file, {
+        maxSizeMB: 1, // Try to keep file below 1MB
+        maxWidthOrHeight: 1280, // Resize to max 1280px
+        useWebWorker: true,
+      });
+
+      // ✅ Use compressed file instead of original
+      const storageRef = ref(
+        storage,
+        `products/${productId}/${compressedFile.name}`
+      );
+      await uploadBytes(storageRef, compressedFile);
+
       const url = await getDownloadURL(storageRef);
 
       const productRef = doc(db, "productCollection", productId);
