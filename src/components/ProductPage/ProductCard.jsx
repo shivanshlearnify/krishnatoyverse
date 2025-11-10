@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ref, deleteObject } from "firebase/storage";
 import { doc, updateDoc, arrayRemove } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
@@ -9,7 +9,8 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
   const [showImages, setShowImages] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // 🔹 Small reusable label/value renderer
+  const fileInputRef = useRef(null); // ✅ Ref for file input
+
   const DetailRow = ({ label, value }) => (
     <p className="text-sm text-gray-600 flex justify-between">
       <span className="font-medium text-gray-700">{label}</span>
@@ -17,7 +18,6 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
     </p>
   );
 
-  // 🔹 Delete image from Firebase & Firestore
   const handleDeleteImage = async (url) => {
     if (!confirm("Are you sure you want to delete this image?")) return;
     setDeleting(true);
@@ -52,7 +52,7 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
       <div className="space-y-1 text-sm">
         <DetailRow label="MRP" value={`₹${item.mrp}`} />
         <DetailRow label="Rate" value={`₹${item.rate}`} />
-        <DetailRow label="Stock" value={item.stock} /> {/* 🆕 Added here */}
+        <DetailRow label="Stock" value={`${item.stock}PCS`} />
         <DetailRow label="Brand" value={item.brand} />
         <DetailRow label="Category" value={item.category} />
         {isExpanded && (
@@ -93,18 +93,26 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
           )}
         </p>
 
-        <label className="mt-2 block w-full">
-          <span className="block text-center py-2 rounded-lg bg-blue-500 text-white text-sm font-medium cursor-pointer hover:bg-blue-600 transition">
-            Add Image
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment" // 👈 Opens back camera on mobile
-            hidden
-            onChange={(e) => onUpload(item.id, e)}
-          />
-        </label>
+        {/* ✅ Trigger file upload through button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="block w-full text-center py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition mt-2"
+        >
+          Add Image
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={(e) => {
+            e.preventDefault();
+            onUpload(item.id, e);
+            e.target.value = ""; // reset for next capture
+          }}
+        />
 
         {uploading && (
           <p className="text-blue-500 mt-1 text-xs text-center">Uploading...</p>
@@ -122,13 +130,11 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
       {/* 🖼 Image Modal */}
       {showImages && (
         <>
-          {/* Overlay */}
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setShowImages(false)}
           ></div>
 
-          {/* Modal */}
           <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-2xl shadow-lg max-w-2xl w-full max-h-[80vh] overflow-auto p-6 relative">
               <button
