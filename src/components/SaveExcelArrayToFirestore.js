@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { db } from "@/lib/firebase";
 import {
@@ -26,7 +27,7 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
     try {
       const colRef = collection(db, "productCollection");
 
-      // 1️⃣ Aggregate duplicates by barcode + name (sum stock in Excel itself)
+      // 1️⃣ Combine duplicate entries (by barcode + name)
       const aggregatedData = dataArray.reduce((acc, item) => {
         const key = `${item.barcode}_${item.name}`;
         if (acc[key]) {
@@ -37,11 +38,10 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
         return acc;
       }, {});
 
-      // Convert to array
       const finalDataArray = Object.values(aggregatedData);
 
       // 2️⃣ Sync with Firestore
-      for (let item of finalDataArray) {
+      for (const item of finalDataArray) {
         if (!item.barcode) continue;
 
         const q = query(
@@ -55,40 +55,49 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
           const existingDoc = querySnapshot.docs[0];
           const existingData = existingDoc.data();
 
-          const oldStock = Number(existingData.stock || 0);
-          const newStock = Number(item.stock); // stock from Excel
-          const stockChange = newStock - oldStock;
+          // ✅ Preserve existing brand/category/subCategory/group
+          const updatedFields = {
+            stock: Number(item.stock),
+            cost: item.cost,
+            value: item.value,
+            mrp: item.mrp,
+            rate: item.rate,
+            updatedAt: new Date().toISOString(),
+          };
+
+          // 🧠 Merge existing brand/category only if they already exist
+          const preservedFields = {
+            brand: existingData.brand || "",
+            category: existingData.category || "",
+            subCategory: existingData.subCategory || "",
+            group: existingData.group || "",
+          };
 
           await updateDoc(existingDoc.ref, {
-            ...item,
-            stock: newStock, // 🔥 overwrite with Excel stock
-            updatedAt: new Date().toISOString(),
+            ...existingData,
+            ...updatedFields,
+            ...preservedFields, // ✅ ensures no null overwrites
           });
 
-          if (stockChange !== 0) {
-            console.log(
-              `UPDATED: ${item.name} (Barcode: ${
-                item.barcode
-              }) | Old: ${oldStock}, New: ${newStock}, Change: ${
-                stockChange >= 0 ? "+" : ""
-              }${stockChange}`
-            );
-          }
+          // console.log(
+          //   `UPDATED: ${item.name} (${item.barcode}) | New Stock: ${item.stock}`
+          // );
         } else {
+          // 🆕 Create new document
           await addDoc(colRef, {
             ...item,
             stock: Number(item.stock),
             createdAt: new Date().toISOString(),
           });
           console.log(
-            `CREATED: ${item.name} (Barcode: ${item.barcode}) | Initial Stock: ${item.stock}`
+            `CREATED: ${item.name} (${item.barcode}) | Initial Stock: ${item.stock}`
           );
         }
       }
 
-      setStatus("Data synced successfully!");
+      setStatus("✅ Data synced successfully!");
     } catch (error) {
-      console.error("Error saving data:", error);
+      console.error("❌ Error saving data:", error);
       setStatus("Error saving data!");
     }
 
@@ -105,7 +114,7 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
         {loading ? "Saving..." : "Save to Firestore"}
       </button>
 
-      {status && <p className="mt-2">{status}</p>}
+      {status && <p className="mt-2 font-semibold">{status}</p>}
     </div>
   );
 }
