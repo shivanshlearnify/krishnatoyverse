@@ -6,16 +6,23 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import AnnouncementBar from "./AnnouncementBar";
 import { useAuth } from "@/app/hooks/useAuth";
+import { toast } from "react-toastify";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
+
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logout();
-    alert("Logged out successfully 👋");
-    router.push("/");
+    try {
+      await logout(); // your logout logic (Firebase, session, etc.)
+      toast.success("Logged out successfully 👋", { autoClose: 2000 });
+      setTimeout(() => router.push("/"), 2000); // redirect after toast
+    } catch (error) {
+      console.error("Logout failed:", error);
+      toast.error("Failed to logout. Please try again.", { autoClose: 2500 });
+    }
   };
 
   return (

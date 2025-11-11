@@ -19,12 +19,24 @@ export default function PhoneAuth() {
   const router = useRouter();
   const auth = getAuth();
 
+  
   useEffect(() => {
+    if (typeof window === "undefined") return;
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, "sign-in-button", {
         size: "invisible",
+        callback: () => console.log("reCAPTCHA verified ✅"),
+        "expired-callback": () => console.warn("reCAPTCHA expired"),
       });
     }
+    return () => {
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {}
+        delete window.recaptchaVerifier;
+      }
+    };
   }, [auth]);
 
   const handleSendOtp = async () => {
@@ -36,7 +48,11 @@ export default function PhoneAuth() {
     setLoading(true);
     try {
       const appVerifier = window.recaptchaVerifier;
-      const confirmation = await signInWithPhoneNumber(auth, phone, appVerifier);
+      const confirmation = await signInWithPhoneNumber(
+        auth,
+        phone,
+        appVerifier
+      );
       setConfirmationResult(confirmation);
       toast.success("OTP sent 📩");
     } catch (err) {
@@ -91,7 +107,9 @@ export default function PhoneAuth() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-6">
       <div className="bg-white shadow-xl rounded-2xl p-6 w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4 text-center">Login with Phone</h1>
+        <h1 className="text-2xl font-bold mb-4 text-center">
+          Login with Phone
+        </h1>
 
         {!confirmationResult ? (
           <>
