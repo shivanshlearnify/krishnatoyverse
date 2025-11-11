@@ -23,28 +23,27 @@ export default function PhoneAuth() {
 
   // Initialize invisible reCAPTCHA once
   useEffect(() => {
-  if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
 
-  if (!window.recaptchaVerifier) {
-    window.recaptchaVerifier = new RecaptchaVerifier(
-      "sign-in-button",
-      {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, "sign-in-button", {
         size: "invisible",
         callback: () => console.log("reCAPTCHA verified ✅"),
         "expired-callback": () => console.warn("reCAPTCHA expired"),
-      },
-      auth
-    );
-  }
-
-  return () => {
-    if (window.recaptchaVerifier) {
-      try { window.recaptchaVerifier.clear(); } catch {}
-      delete window.recaptchaVerifier;
+      });
     }
-  };
-}, [auth]);
 
+    return () => {
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          // ignore cleanup errors
+        }
+        delete window.recaptchaVerifier;
+      }
+    };
+  }, [auth]);
 
   const handleSendOtp = async () => {
     setError("");
