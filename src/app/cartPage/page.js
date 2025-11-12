@@ -192,66 +192,6 @@ export default function CartPage() {
           })}
         </div>
       </div>
-
-      {/* 💳 Checkout Section */}
-      <div className="bg-white shadow-md rounded-2xl p-6 h-fit">
-        <h2 className="text-xl font-semibold mb-4">Checkout Details</h2>
-
-        <form onSubmit={handlePlaceOrder} className="flex flex-col gap-3">
-          <input
-            type="text"
-            name="name"
-            placeholder="Full Name"
-            value={formData.name}
-            onChange={handleChange}
-            className="border rounded-lg p-2"
-            required
-          />
-          <input
-            type="tel"
-            name="phone"
-            placeholder="Phone Number"
-            value={formData.phone}
-            onChange={handleChange}
-            className="border rounded-lg p-2"
-            required
-          />
-          <textarea
-            name="address"
-            placeholder="Full Address"
-            value={formData.address}
-            onChange={handleChange}
-            className="border rounded-lg p-2"
-            rows={3}
-            required
-          />
-          <select
-            name="paymentMethod"
-            value={formData.paymentMethod}
-            onChange={handleChange}
-            className="border rounded-lg p-2"
-            required
-          >
-            <option value="COD">Cash on Delivery</option>
-            <option value="UPI">UPI</option>
-            <option value="Card">Card</option>
-          </select>
-
-          <div className="flex items-center justify-between font-semibold mt-4">
-            <p>Total:</p>
-            <p>₹{totalAmount.toFixed(2)}</p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center justify-center gap-2 bg-pink-600 text-white py-2 rounded-full hover:bg-pink-700 transition mt-3"
-          >
-            <ShoppingBag size={18} />
-            {loading ? "Placing Order..." : "Place Order"}
-          </button>
-        </form>
-      </div>
     </div>
   );
 }

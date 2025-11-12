@@ -1,3 +1,4 @@
+import CartDrawer from "@/components/CartDrawer";
 import "./globals.css";
 import Providers from "./providers";
 import CartSyncProvider from "@/components/CartSyncProvider";
@@ -14,6 +15,7 @@ export default function RootLayout({ children }) {
           <CartSyncProvider>
             <Navbar />
             <main className="min-h-screen pt-20">{children}</main>
+            <CartDrawer />
             <ScrollToTopButton />
           </CartSyncProvider>
           {/* ✅ Toastify container for global notifications */}
