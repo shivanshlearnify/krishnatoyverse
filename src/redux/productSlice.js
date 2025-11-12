@@ -1,7 +1,8 @@
-// productSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { collection, getDocs, query, limit, startAfter, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+
+const CACHE_EXPIRY_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export const fetchProducts = createAsyncThunk(
   "products/fetchProducts",
@@ -10,7 +11,6 @@ export const fetchProducts = createAsyncThunk(
       const productRef = collection(db, "productCollection");
       let q = query(productRef, limit(pageSize));
 
-      // If we have lastVisibleId, fetch its snapshot to use for pagination
       if (lastVisibleId) {
         const lastDocRef = doc(db, "productCollection", lastVisibleId);
         const lastDocSnap = await getDoc(lastDocRef);
@@ -23,16 +23,14 @@ export const fetchProducts = createAsyncThunk(
         ...doc.data(),
       }));
 
-      console.log("✅ Fetched from DB:", products);
-
       const lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1];
 
       return {
         products,
         lastVisibleId: lastVisibleDoc ? lastVisibleDoc.id : null,
+        fetchedAt: Date.now(),
       };
     } catch (err) {
-      console.error("❌ Firestore Fetch Error:", err.message);
       return rejectWithValue(err.message);
     }
   }
@@ -45,32 +43,29 @@ const productSlice = createSlice({
     lastVisibleId: null,
     loading: false,
     error: null,
+    lastFetchedAt: 0,
   },
   reducers: {
     clearProducts: (state) => {
-      console.log("🧹 Products Cleared");
       state.data = [];
       state.lastVisibleId = null;
+      state.lastFetchedAt = 0;
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchProducts.pending, (state) => {
         state.loading = true;
-        console.log("⏳ Fetching products...");
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
         state.data = [...state.data, ...action.payload.products];
         state.lastVisibleId = action.payload.lastVisibleId;
-
-        console.log("📦 Stored in Redux:", state.data);
+        state.lastFetchedAt = action.payload.fetchedAt;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-
-        console.error("❌ Fetch Failed:", action.payload);
       });
   },
 });

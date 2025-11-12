@@ -2,6 +2,8 @@
 
 import { useDispatch } from "react-redux";
 import { addToCart } from "@/redux/cartSlice";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function ProductCard({ product }) {
   const dispatch = useDispatch();
@@ -10,11 +12,34 @@ export default function ProductCard({ product }) {
   // 🧮 Calculate discount percentage
   const rate = Number(product?.rate) || 0;
   const mrp = Number(product?.mrp) || 0;
-  const discount =
-    mrp > rate ? Math.round(((mrp - rate) / mrp) * 100) : 0;
+  const discount = mrp > rate ? Math.round(((mrp - rate) / mrp) * 100) : 0;
+
+  const handleAddToCart = () => {
+    dispatch(addToCart(product));
+    toast.success("🛒 Added to Cart!", {
+      position: "top-center",
+      autoClose: 1800,
+      hideProgressBar: false,
+      pauseOnHover: true,
+      draggable: true,
+      theme: "colored",
+      style: {
+        backgroundColor: "#691080",
+        color: "#fff",
+        fontWeight: 500,
+      },
+    });
+  };
 
   return (
-    <div className="p-4 bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100">
+    <div className="p-4 bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 relative">
+      {/* 🏷️ Sale Badge */}
+      {discount > 0 && (
+        <div className="absolute top-3 right-3 bg-pink-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md">
+          SALE
+        </div>
+      )}
+
       {/* 🖼 Product Image */}
       <div className="w-full aspect-square overflow-hidden rounded-xl">
         <img
@@ -27,15 +52,16 @@ export default function ProductCard({ product }) {
 
       {/* 📝 Product Info */}
       <div className="mt-3">
-        <h3 className="text-lg font-semibold text-gray-900 truncate">
+        <h3
+          className="text-base sm:text-lg font-semibold text-gray-900 truncate"
+          title={product.name} // 🧩 shows full name on hover
+        >
           {product.name}
         </h3>
 
         {/* 💰 Price Section */}
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-xl font-bold text-[#691080]">
-            ₹{rate}
-          </span>
+          <span className="text-xl font-bold text-[#691080]">₹{rate}</span>
           {mrp > rate && (
             <>
               <span className="text-gray-500 line-through text-sm">
@@ -49,7 +75,7 @@ export default function ProductCard({ product }) {
         </div>
 
         <button
-          onClick={() => dispatch(addToCart(product))}
+          onClick={handleAddToCart}
           className="mt-4 w-full bg-[#691080] text-white py-2.5 rounded-xl hover:bg-[#aa1ccf] transition-all font-medium"
         >
           Add to Cart

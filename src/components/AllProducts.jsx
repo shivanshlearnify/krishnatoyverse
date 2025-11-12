@@ -3,41 +3,34 @@
 import { clearProducts, fetchProducts } from "@/redux/productSlice";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import ProductCard from "@/components/ProductCard"; // ✅ import it
+import ProductCard from "@/components/ProductCard";
 
 export default function AllProducts() {
   const dispatch = useDispatch();
-
-  const {
-    data = [],
-    loading,
-    error,
-    lastVisibleId,
-  } = useSelector((state) => state.products ?? {});
-
-  console.log("FROM COMPONENT:", { data, loading, error, lastVisibleId });
+  const { data = [], loading, error, lastVisibleId, lastFetchedAt } =
+    useSelector((state) => state.products ?? {});
 
   useEffect(() => {
-    dispatch(clearProducts());
-    dispatch(fetchProducts({ pageSize: 20 }));
-  }, []);
+    const isExpired = Date.now() - (lastFetchedAt || 0) > 6 * 60 * 60 * 1000;
+
+    if (data.length === 0 || isExpired) {
+      console.log("🔄 Fetching fresh data from Firestore...");
+      dispatch(clearProducts());
+      dispatch(fetchProducts({ pageSize: 20 }));
+    } else {
+      console.log("✅ Using cached data from Redux Persist");
+    }
+  }, [dispatch]);
 
   const handleLoadMore = () => {
-    if (loading) return;
-    if (lastVisibleId) {
+    if (!loading && lastVisibleId) {
       dispatch(fetchProducts({ lastVisibleId, pageSize: 20 }));
     }
   };
 
-  // ✅ Sort only once & log
   const sortedProducts = [...data].sort(
     (a, b) => (b.images?.length || 0) - (a.images?.length || 0)
   );
-
-  console.log("✅ Sorted Products:", sortedProducts);
-
-  // Optional: show name + image count only
-  console.log(sortedProducts);
 
   return (
     <div className="p-4">
@@ -46,7 +39,6 @@ export default function AllProducts() {
       {loading && data.length === 0 && <p>Loading...</p>}
       {error && <p className="text-red-500">Error: {error}</p>}
 
-      {/* ✅ Render Products */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {sortedProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
