@@ -5,11 +5,16 @@ import ExcelUploader from "@/components/ExcelUploader";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { fetchAllData } from "@/redux/adminProductSlice";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -24,6 +29,23 @@ export default function AdminPage() {
   const handleLogout = () => {
     localStorage.removeItem("user");
     router.push("/adminlogin");
+  };
+
+  const handleRefresh = async () => {
+    try {
+      const result = await dispatch(fetchAllData(true)).unwrap(); // ✅ unwrap to get actual payload
+
+      if (result.cached) {
+        toast.info("Using cached data ⚡", { position: "top-center" });
+      } else {
+        toast.success("Data refreshed successfully! 🎉", {
+          position: "top-center",
+        });
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast.error("Failed to refresh data ❌", { position: "top-center" });
+    }
   };
 
   if (loading) {
@@ -49,11 +71,17 @@ export default function AdminPage() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => dispatch(fetchAllData())}
+            onClick={handleRefresh}
             className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600"
           >
             🔄 Refresh Data
           </button>
+          <Link
+            href="/productImageUpdate"
+            className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
+          >
+            productImageUpdate <ArrowRight size={16} />
+          </Link>
           <Link
             href="/productPage"
             className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
@@ -79,12 +107,8 @@ export default function AdminPage() {
         </p>
         <ExcelUploader />
       </div>
-      <button
-        onClick={() => dispatch(fetchAllData())}
-        className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600"
-      >
-        🔄 Refresh Data
-      </button>
+
+      <ToastContainer />
     </div>
   );
 }

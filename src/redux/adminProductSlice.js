@@ -11,9 +11,11 @@ const isCacheExpired = (timestamp) => {
 
 export const fetchAllData = createAsyncThunk(
   "data/fetchAll",
-  async (_, { getState }) => {
+  async (forceRefresh = false, { getState }) => {
     const state = getState().adminProducts;
-    if (!isCacheExpired(state.lastFetchedAt)) {
+
+    // ✅ Skip Firestore reads only if cache valid & not forced
+    if (!forceRefresh && !isCacheExpired(state.lastFetchedAt)) {
       console.log("🟡 Using cached admin data — no Firestore reads");
       return { cached: true, data: state };
     }
@@ -36,7 +38,6 @@ export const fetchAllData = createAsyncThunk(
     return { cached: false, data };
   }
 );
-
 const adminProductSlice = createSlice({
   name: "adminProductData",
   initialState: {
