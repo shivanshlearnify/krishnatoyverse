@@ -48,6 +48,12 @@ export default function AdminPage() {
         </div>
 
         <div className="flex gap-3">
+          <button
+            onClick={() => dispatch(fetchAllData())}
+            className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600"
+          >
+            🔄 Refresh Data
+          </button>
           <Link
             href="/productPage"
             className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
@@ -73,6 +79,12 @@ export default function AdminPage() {
         </p>
         <ExcelUploader />
       </div>
+      <button
+        onClick={() => dispatch(fetchAllData())}
+        className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600"
+      >
+        🔄 Refresh Data
+      </button>
     </div>
   );
 }
