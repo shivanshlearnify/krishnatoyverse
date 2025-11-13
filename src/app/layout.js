@@ -1,3 +1,5 @@
+"use client"; // <-- Add this at the top
+
 import CartDrawer from "@/components/CartDrawer";
 import "./globals.css";
 import Providers from "./providers";
@@ -6,19 +8,22 @@ import Navbar from "@/components/Navbar";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Footer from "@/components/Footer";
 
 export default function RootLayout({ children }) {
+
   return (
     <html lang="en">
       <body>
         <Providers>
           <CartSyncProvider>
-            <Navbar />
+            <Navbar/>
             <main className="min-h-screen pt-20">{children}</main>
-            <CartDrawer />
+            <Footer/>
+            <CartDrawer/>
             <ScrollToTopButton />
           </CartSyncProvider>
-          {/* ✅ Toastify container for global notifications */}
+
           <ToastContainer
             position="top-center"
             autoClose={2500}
@@ -27,7 +32,7 @@ export default function RootLayout({ children }) {
             closeOnClick
             pauseOnHover
             draggable
-            theme="colored" // optional: gives nice color styling
+            theme="colored"
           />
         </Providers>
       </body>

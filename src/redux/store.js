@@ -14,12 +14,14 @@ import storage from "redux-persist/lib/storage";
 import adminProductReducer from "./adminProductSlice";
 import productReducer from "./productSlice";
 import cartReducer from "./cartSlice";
+import cartDrawerReducer from "./cartDrawerSlice";
 
 // ✅ Combine reducers
 const rootReducer = combineReducers({
   adminProducts: adminProductReducer,
   products: productReducer,
   cart: cartReducer,
+  cartDrawer: cartDrawerReducer,
 });
 
 // ✅ Persist Config

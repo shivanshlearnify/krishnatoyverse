@@ -4,15 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import AnnouncementBar from "./AnnouncementBar";
 import { useAuth } from "@/app/hooks/useAuth";
 import { toast } from "react-toastify";
+import { toggleDrawer } from "@/redux/cartDrawerSlice"; // ✅ import Redux action
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
   const router = useRouter();
+  const dispatch = useDispatch(); // ✅ useDispatch
 
   const cartItems = useSelector((state) => state.cart.items);
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -33,7 +35,7 @@ export default function Navbar() {
       <AnnouncementBar />
       <nav className="w-full bg-white px-6 md:px-36 py-3 shadow-sm relative z-50">
         <div className="flex justify-between items-center">
-          {/* 🌟 Logo */}
+          {/* Logo */}
           <Link
             href="/"
             className="text-xl font-bold text-pink-600 whitespace-nowrap"
@@ -41,7 +43,7 @@ export default function Navbar() {
             ToyVerse
           </Link>
 
-          {/* 🖥️ Desktop Navigation */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {!user ? (
               <Link
@@ -73,24 +75,22 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* 🛒 Cart — aligned horizontally */}
-            <Link
-              href="/cartPage"
-              className="relative flex items-center gap-2 text-2xl font-bold text-[#c650e4d3] hover:text-[#c650e4] transition"
+            {/* Cart — Redux controlled */}
+            <div
+              className="relative flex items-center gap-2 text-2xl font-bold text-[#c650e4d3] hover:text-[#c650e4] transition cursor-pointer"
+              onClick={() => dispatch(toggleDrawer())} // ✅ Redux toggle
             >
-              <div className="relative">
-                {cartCount > 0 && (
-                  <span className="absolute -top-3 -right-2 bg-pink-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                    {cartCount}
-                  </span>
-                )}
-                <ShoppingCart size={28} />
-              </div>
-              <span className="text-base">Cart</span>
-            </Link>
+              {cartCount > 0 && (
+                <span className="absolute -top-3 -right-2 bg-pink-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                  {cartCount}
+                </span>
+              )}
+              <ShoppingCart size={28} />
+              <span className="text-base ml-1">Cart</span>
+            </div>
           </div>
 
-          {/* 📱 Mobile Menu Button */}
+          {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="md:hidden text-pink-600"
@@ -99,7 +99,7 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* 📱 Mobile Menu */}
+        {/* Mobile Menu */}
         {isOpen && (
           <div className="md:hidden mt-3 space-y-3 bg-white p-4 rounded-lg shadow-lg">
             {!user ? (
@@ -126,21 +126,19 @@ export default function Navbar() {
               </>
             )}
 
-            {/* 🛒 Mobile Cart */}
-            <Link
-              href="/cartPage"
-              className="relative flex items-center gap-2 text-lg font-semibold text-[#c650e4d3] hover:text-[#c650e4]"
+            {/* Mobile Cart */}
+            <div
+              className="relative flex items-center gap-2 text-lg font-semibold text-[#c650e4d3] hover:text-[#c650e4] cursor-pointer"
+              onClick={() => dispatch(toggleDrawer())} // ✅ Redux toggle
             >
-              <div className="relative">
-                {cartCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-pink-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                    {cartCount}
-                  </span>
-                )}
-                <ShoppingCart size={24} />
-              </div>
-              <span>Cart</span>
-            </Link>
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-pink-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                  {cartCount}
+                </span>
+              )}
+              <ShoppingCart size={24} />
+              <span className="ml-1">Cart</span>
+            </div>
           </div>
         )}
       </nav>
