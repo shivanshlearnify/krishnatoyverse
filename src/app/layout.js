@@ -18,7 +18,7 @@ export default function RootLayout({ children }) {
         <Providers>
           <CartSyncProvider>
             <Navbar/>
-            <main className="min-h-screen pt-20">{children}</main>
+            <main className="min-h-screen max-w-[1360px] mx-auto">{children}</main>
             <Footer/>
             <CartDrawer/>
             <ScrollToTopButton />

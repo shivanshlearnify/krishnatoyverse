@@ -6,6 +6,7 @@ import { closeDrawer } from "@/redux/cartDrawerSlice";
 import { Minus, Plus, Trash2, X, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import { toast } from "react-toastify";
+import Script from "next/script";
 
 export default function CartDrawer() {
   const { items } = useSelector((state) => state.cart);
@@ -31,9 +32,34 @@ export default function CartDrawer() {
   const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
 
   const handleClose = () => dispatch(closeDrawer());
+  const handleCheckout = () => {
+    if (!window?.ShiprocketCheckout) {
+      toast.error("Checkout is still loading, please try again.");
+      return;
+    }
+
+    window.ShiprocketCheckout.open({
+      checkout_id: "YOUR_CHECKOUT_ID", // paste your ID here
+      order_token_url: "/api/shiprocket/create-order",
+
+      metadata: {
+        totalAmount,
+        totalQty,
+        cartItems: items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          qty: i.quantity,
+          price: Number(i.rate || i.price) || 0,
+          image: i.image || i.images?.[0] || "",
+        })),
+      },
+    });
+  };
 
   return (
     <>
+      <Script src="https://cdn.shiprocket.in/checkout-js/latest/checkout.min.js" />
+
       {/* Drawer */}
       <div
         className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl transform transition-transform duration-300 z-[60] rounded-l-2xl flex flex-col ${
@@ -42,7 +68,9 @@ export default function CartDrawer() {
       >
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-purple-800">🛒 Your Cart</h2>
+          <h2 className="text-lg font-semibold text-purple-800">
+            🛒 Your Cart
+          </h2>
           <button
             onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-full"
@@ -69,7 +97,8 @@ export default function CartDrawer() {
             items.map((item) => {
               const price = Number(item.rate || item.price) || 0;
               const itemTotal = (price * item.quantity).toFixed(2);
-              const imageSrc = item.image || item.images?.[0] || "/placeholder.png";
+              const imageSrc =
+                item.image || item.images?.[0] || "/placeholder.png";
 
               return (
                 <div
@@ -87,7 +116,9 @@ export default function CartDrawer() {
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">{item.name}</p>
-                      <p className="text-sm text-gray-500">₹{price.toFixed(2)}</p>
+                      <p className="text-sm text-gray-500">
+                        ₹{price.toFixed(2)}
+                      </p>
                       <p className="text-sm font-semibold text-purple-700">
                         Total: ₹{itemTotal}
                       </p>
@@ -143,7 +174,10 @@ export default function CartDrawer() {
               </div>
             </div>
 
-            <button className="w-full py-3 bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-800 hover:to-purple-950 text-white font-semibold rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all">
+            <button
+              onClick={handleCheckout}
+              className="w-full py-3 bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-800 hover:to-purple-950 text-white font-semibold rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all"
+            >
               <ShoppingBag size={18} />
               Buy Now (₹{totalAmount.toFixed(2)})
             </button>

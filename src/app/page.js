@@ -8,21 +8,14 @@ import Image from "next/image";
 export default function Home() {
   return (
     <>
-      <div className="min-h-[80vh] text-[#F9FAFB] flex flex-col justify-center px-4">
-        {/* <Image
-          src="/toyBannerBg.png"
-          alt="Toy Store Banner"
-          width={600}
-          height={500}
-          className="absolute top-0 right-40"
-        /> */}
+      <div className="min-h-[80vh] text-[#F9FAFB] flex items-center justify-between mx-4">
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="max-w-4xl ml-36"
+          className="w-[60%]"
         >
-          <h3 className="text-white bg-[]">A unit of Krishna super mart</h3>      
+          <h3 className="text-[#c650e4d3]">A unit of Krishna super mart</h3>
           <h2 className="text-5xl font-extrabold text-[#8b1da7] drop-shadow-lg">
             Welcome to Krishna ToyVerse 🎮
           </h2>
@@ -39,9 +32,16 @@ export default function Home() {
             </button>
           </div>
         </motion.section>
+        <Image
+          src="/toyBannerBg.png"
+          alt="Toy Store Banner"
+          width={600}
+          height={500}
+          className="top-10 right-40 tablet-only:!w-80 tablet-only:!h-auto"
+        />
       </div>
       {/* <ShopByCategorySection /> */}
-      <AllProducts/>
+      <AllProducts />
     </>
   );
 }
