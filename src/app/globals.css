@@ -1,21 +1,4 @@
 @import "tailwindcss";
 
 /* Normal min-width breakpoints (optional) */
-@theme {
-  --breakpoint-mobile: 480px;
-  --breakpoint-tablet: 768px;
-  --breakpoint-laptop: 1024px;
-}
 
-/* REAL RANGE-BASED BREAKPOINTS */
-@custom-variant mobile-only {
-  @media (max-width: 480px);
-}
-
-@custom-variant tablet-only {
-  @media (min-width: 481px) and (max-width: 768px);
-}
-
-@custom-variant laptop-only {
-  @media (min-width: 769px) and (max-width: 1024px);
-}
