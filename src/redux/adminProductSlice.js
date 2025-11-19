@@ -1,77 +1,199 @@
-import { db } from "@/lib/firebase";
+"use client";
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-// ✅ Helper to check if cache expired (6 hours)
-const isCacheExpired = (timestamp) => {
-  if (!timestamp) return true;
-  const now = Date.now();
-  return now - timestamp > 6 * 60 * 60 * 1000; // 6 hours
-};
+// ----------------------------
+// CONSTANTS
+// ----------------------------
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+const FIELDS = ["brand", "category", "subCategory", "group", "supplier", "suppinvo"];
 
-export const fetchAllData = createAsyncThunk(
-  "data/fetchAll",
-  async (forceRefresh = false, { getState }) => {
-    const state = getState().adminProducts;
-
-    // ✅ Skip Firestore reads only if cache valid & not forced
-    if (!forceRefresh && !isCacheExpired(state.lastFetchedAt)) {
-      console.log("🟡 Using cached admin data — no Firestore reads");
-      return { cached: true, data: state };
-    }
-
-    console.log("🔥 Fetching admin data from Firestore...");
-    const collections = [
-      "brands",
-      "categories",
-      "groups",
-      "subcategories",
-      "productCollection",
-    ];
-
-    const data = {};
-    for (const col of collections) {
-      const snap = await getDocs(collection(db, col));
-      data[col] = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    }
-
-    return { cached: false, data };
+// ----------------------------
+// FETCH META COLLECTIONS
+// ----------------------------
+export const fetchMeta = createAsyncThunk(
+  "admin/fetchMeta",
+  async (colName) => {
+    const snap = await getDocs(collection(db, colName));
+    const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return { colName, data };
   }
 );
-const adminProductSlice = createSlice({
-  name: "adminProductData",
-  initialState: {
+
+// ----------------------------
+// FETCH PRODUCTS BY FIELD WITH CACHE
+// ----------------------------
+export const fetchProductsByField = createAsyncThunk(
+  "admin/fetchProductsByField",
+  async ({ field, value }, { getState }) => {
+    if (!field) return { field, value, data: [] };
+
+    const safeValue = value && value.trim() !== "" ? value : "__empty__";
+
+    // Check cached data
+    const state = getState();
+    const cached = state.adminProducts.filtered?.[field]?.[safeValue];
+
+    if (cached?.lastFetched && Date.now() - cached.lastFetched < CACHE_DURATION) {
+      return { field, value: safeValue, data: cached.products, fromCache: true };
+    }
+
+    // Fetch from Firestore
+    const q = query(collection(db, "productCollection"), where(field, "==", value));
+    const snap = await getDocs(q);
+    const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    return { field, value: safeValue, data };
+  }
+);
+
+// ----------------------------
+// SEARCH PRODUCTS BY NAME OR BARCODE
+// ----------------------------
+export const searchProductsByNameOrBarcode = createAsyncThunk(
+  "admin/searchProducts",
+  async ({ term, limitResults = 50 }) => {
+    if (!term?.trim()) return { data: [] };
+    const results = new Map();
+
+    // Barcode exact match
+    const barcodeQ = query(
+      collection(db, "productCollection"),
+      where("barcode", "==", term),
+      limit(limitResults)
+    );
+    const barcodeSnap = await getDocs(barcodeQ);
+    barcodeSnap.forEach((doc) =>
+      results.set(doc.id, { id: doc.id, ...doc.data() })
+    );
+
+    // Name prefix match
+    const start = term;
+    const end = term + "\uf8ff";
+    try {
+      const nameQ = query(
+        collection(db, "productCollection"),
+        orderBy("name"),
+        where("name", ">=", start),
+        where("name", "<=", end),
+        limit(limitResults)
+      );
+      const nameSnap = await getDocs(nameQ);
+      nameSnap.forEach((doc) =>
+        results.set(doc.id, { id: doc.id, ...doc.data() })
+      );
+    } catch (err) {
+      console.warn("Prefix query failed:", err.message);
+    }
+
+    return { data: [...results.values()] };
+  }
+);
+
+// ----------------------------
+// INITIAL STATE
+// ----------------------------
+const initialState = {
+  meta: {
     brands: [],
     categories: [],
-    groups: [],
     subcategories: [],
-    productCollection: [],
-    lastFetchedAt: null,
-    loading: false,
-    error: null,
+    groups: [],
+    supplierCollection: [],
+    suppinvoCollection: [],
   },
-  reducers: {},
+  filtered: {
+    brand: {},
+    category: {},
+    subCategory: {},
+    group: {},
+    supplier: {},
+    suppinvo: {},
+    search: { last: [] },
+  },
+  loadingMeta: false,
+  loadingFiltered: false,
+  error: null,
+};
+
+// ----------------------------
+// SLICE
+// ----------------------------
+const adminProductSlice = createSlice({
+  name: "adminProducts",
+  initialState,
+  reducers: {
+    // Clear entire field
+    clearFilteredForField: (state, action) => {
+      const field = action.payload;
+      if (!state.filtered[field]) state.filtered[field] = {};
+      state.filtered[field] = {};
+    },
+
+    // ✅ Clear a specific value in a field
+    clearFilteredValue: (state, action) => {
+      const { field, value } = action.payload;
+      if (state.filtered[field]?.[value]) {
+        delete state.filtered[field][value];
+      }
+    },
+  },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchAllData.pending, (state) => {
-        state.loading = true;
+      // ---------------- META ----------------
+      .addCase(fetchMeta.fulfilled, (state, action) => {
+        const { colName, data } = action.payload;
+        state.meta = state.meta || {};
+        state.meta[colName] = data || [];
+        state.loadingMeta = false;
       })
-      .addCase(fetchAllData.fulfilled, (state, action) => {
-        state.loading = false;
-
-        // Skip if cached
-        if (action.payload.cached) return;
-
-        Object.assign(state, action.payload.data);
-        state.lastFetchedAt = Date.now();
-
-        console.log("✅ Admin data stored in Redux + persisted");
-      })
-      .addCase(fetchAllData.rejected, (state, action) => {
-        state.loading = false;
+      .addCase(fetchMeta.rejected, (state, action) => {
+        state.loadingMeta = false;
         state.error = action.error.message;
+      })
+
+      // ---------------- FILTERED ----------------
+      .addCase(fetchProductsByField.pending, (state) => {
+        state.loadingFiltered = true;
+      })
+      .addCase(fetchProductsByField.fulfilled, (state, action) => {
+        const { field, value, data } = action.payload;
+        if (!field) return;
+
+        state.filtered = state.filtered || {};
+        if (!state.filtered[field]) state.filtered[field] = {};
+
+        state.filtered[field][value] = {
+          products: Array.isArray(data) ? data : [],
+          lastFetched: Date.now(),
+        };
+
+        state.loadingFiltered = false;
+      })
+
+      // ---------------- SEARCH ----------------
+      .addCase(searchProductsByNameOrBarcode.pending, (state) => {
+        state.loadingFiltered = true;
+      })
+      .addCase(searchProductsByNameOrBarcode.fulfilled, (state, action) => {
+        state.filtered.search = { last: action.payload.data || [] };
+        state.loadingFiltered = false;
+      })
+      .addCase(searchProductsByNameOrBarcode.rejected, (state, action) => {
+        state.error = action.error.message;
+        state.loadingFiltered = false;
       });
   },
 });
 
+export const { clearFilteredForField, clearFilteredValue } = adminProductSlice.actions;
 export default adminProductSlice.reducer;

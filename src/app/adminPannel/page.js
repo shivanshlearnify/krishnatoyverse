@@ -6,48 +6,72 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
+import { fetchMeta } from "@/redux/adminProductSlice";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { fetchAllData } from "@/redux/adminProductSlice";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const dispatch = useDispatch();
 
+  // --------------------------------------
+  // ✅ AUTH CHECK — Runs once on page load
+  // --------------------------------------
   useEffect(() => {
     const user = localStorage.getItem("user");
+
     if (user) {
       setIsAuthenticated(true);
     } else {
-      router.push("/adminlogin");
+      router.replace("/adminlogin");
     }
+
     setLoading(false);
   }, [router]);
 
+  // --------------------------------------
+  // 🔴 Logout
+  // --------------------------------------
   const handleLogout = () => {
     localStorage.removeItem("user");
-    router.push("/adminlogin");
+    router.replace("/adminlogin");
   };
 
+  // --------------------------------------
+  // 🔄 Refresh meta collections
+  // --------------------------------------
   const handleRefresh = async () => {
-    try {
-      const result = await dispatch(fetchAllData(true)).unwrap(); // ✅ unwrap to get actual payload
+    setRefreshing(true);
+    const collections = [
+      "brands",
+      "categories",
+      "subcategories",
+      "groups",
+      "supplierCollection",
+      "suppinvoCollection",
+    ];
 
-      if (result.cached) {
-        toast.info("Using cached data ⚡", { position: "top-center" });
-      } else {
-        toast.success("Data refreshed successfully! 🎉", {
-          position: "top-center",
-        });
-      }
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      toast.error("Failed to refresh data ❌", { position: "top-center" });
+    try {
+      await Promise.all(collections.map((col) => dispatch(fetchMeta(col)).unwrap()));
+      toast.success("Meta collections refreshed successfully ✅", {
+        position: "top-center",
+      });
+    } catch (err) {
+      console.error("Refresh error:", err);
+      toast.error("Failed to refresh meta collections ❌", {
+        position: "top-center",
+      });
+    } finally {
+      setRefreshing(false);
     }
   };
 
+  // --------------------------------------
+  // Loading Screen
+  // --------------------------------------
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-700">
@@ -58,6 +82,9 @@ export default function AdminPage() {
 
   if (!isAuthenticated) return null;
 
+  // --------------------------------------
+  // MAIN UI
+  // --------------------------------------
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       {/* Header */}
@@ -72,22 +99,26 @@ export default function AdminPage() {
         <div className="flex gap-3">
           <button
             onClick={handleRefresh}
-            className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600"
+            disabled={refreshing}
+            className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 disabled:opacity-50"
           >
-            🔄 Refresh Data
+            {refreshing ? "Refreshing..." : "🔄 Refresh"}
           </button>
+
           <Link
             href="/productImageUpdate"
             className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
           >
             productImageUpdate <ArrowRight size={16} />
           </Link>
+
           <Link
             href="/productPage"
             className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
           >
             Go to Products <ArrowRight size={16} />
           </Link>
+
           <button
             onClick={handleLogout}
             className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition"
@@ -105,6 +136,7 @@ export default function AdminPage() {
         <p className="text-sm text-gray-600 mb-6">
           Please ensure your Excel file follows the proper product data format.
         </p>
+
         <ExcelUploader />
       </div>
 

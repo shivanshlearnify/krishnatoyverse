@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { doc, updateDoc } from "firebase/firestore";
+import { useDispatch, useSelector } from "react-redux";
+import { doc, updateDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { SelectOrAdd } from "@/components/SelectOrAdd";
-import { fetchAllData } from "@/redux/adminProductSlice";
+import { fetchMeta, fetchProductsByField, clearFilteredValue } from "@/redux/adminProductSlice";
 
 export default function UpdateProduct({ product, onClose }) {
   const dispatch = useDispatch();
-  const dataState = useSelector((state) => state.adminProducts);
+  const meta = useSelector((s) => s.adminProducts.meta) || {};
+
+  const { brands = [], categories = [], subcategories = [], groups = [] } = meta;
 
   const [form, setForm] = useState({
     brand: "",
@@ -18,14 +20,6 @@ export default function UpdateProduct({ product, onClose }) {
     group: "",
   });
 
-  const [options, setOptions] = useState({
-    brand: [],
-    category: [],
-    subCategory: [],
-    group: [],
-  });
-
-  // ✅ Reset form whenever product changes
   useEffect(() => {
     if (product) {
       setForm({
@@ -37,39 +31,44 @@ export default function UpdateProduct({ product, onClose }) {
     }
   }, [product]);
 
-  // ✅ Fetch latest data once
   useEffect(() => {
-    dispatch(fetchAllData());
+    dispatch(fetchMeta("brands"));
+    dispatch(fetchMeta("categories"));
+    dispatch(fetchMeta("subcategories"));
+    dispatch(fetchMeta("groups"));
+    dispatch(fetchMeta("supplierCollection"));
+    dispatch(fetchMeta("suppinvoCollection"));
   }, [dispatch]);
-
-  // ✅ Extract unique options from DB
-  useEffect(() => {
-    if (!dataState?.productCollection) return;
-
-    const getUnique = (key) => {
-      const s = new Set();
-      dataState.productCollection.forEach((p) => {
-        const val = p[key];
-        if (val) s.add(val.trim());
-      });
-      return [...s];
-    };
-
-    setOptions({
-      brand: getUnique("brand"),
-      category: getUnique("category"),
-      subCategory: getUnique("subCategory"),
-      group: getUnique("group"),
-    });
-  }, [dataState]);
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Update product in Firestore
+  const createMetaIfNotExists = async (collectionName, value) => {
+    if (!value || !value.trim()) return;
+    const colRef = collection(db, collectionName);
+    const q = query(colRef, where("name", "==", value.trim()));
+    const snap = await getDocs(q);
+    if (!snap.empty) return;
+    await addDoc(colRef, { name: value.trim(), createdAt: new Date().toISOString() });
+  };
+
+  const handleAddNewOption = async (collectionName, newValue) => {
+    await createMetaIfNotExists(collectionName, newValue);
+    dispatch(fetchMeta(collectionName));
+  };
+
   const handleUpdate = async () => {
     try {
+      // Ensure meta docs exist
+      await Promise.all([
+        createMetaIfNotExists("brands", form.brand),
+        createMetaIfNotExists("categories", form.category),
+        createMetaIfNotExists("subcategories", form.subCategory),
+        createMetaIfNotExists("groups", form.group),
+      ]);
+
+      // Update product document
       const ref = doc(db, "productCollection", product.id);
       await updateDoc(ref, {
         brand: form.brand || "",
@@ -79,68 +78,74 @@ export default function UpdateProduct({ product, onClose }) {
         updatedAt: new Date().toISOString(),
       });
 
-      alert("✅ Product updated successfully!");
-      dispatch(fetchAllData());
+      // ✅ Clear only the updated cached values and refetch
+      if (form.brand) {
+        dispatch(clearFilteredValue({ field: "brand", value: form.brand }));
+        dispatch(fetchProductsByField({ field: "brand", value: form.brand }));
+      }
+      if (form.category) {
+        dispatch(clearFilteredValue({ field: "category", value: form.category }));
+        dispatch(fetchProductsByField({ field: "category", value: form.category }));
+      }
+      if (form.subCategory) {
+        dispatch(clearFilteredValue({ field: "subCategory", value: form.subCategory }));
+        dispatch(fetchProductsByField({ field: "subCategory", value: form.subCategory }));
+      }
+      if (form.group) {
+        dispatch(clearFilteredValue({ field: "group", value: form.group }));
+        dispatch(fetchProductsByField({ field: "group", value: form.group }));
+      }
+
+      alert("✅ Product updated successfully");
       onClose?.();
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to update product");
+      alert("❌ Error updating product");
     }
-  };
-
-  // ✅ When new option added, instantly reflect in dropdown
-  const handleAddNewOption = (field, newValue) => {
-    setOptions((prev) => ({
-      ...prev,
-      [field]: [...prev[field], newValue],
-    }));
-    handleChange(field, newValue);
   };
 
   return (
     <div className="p-6 space-y-4">
       <SelectOrAdd
         label="Brand"
-        options={options.brand}
-        value={form.brand}
-        onChange={(val) => handleChange("brand", val)}
         collectionName="brands"
-        onAddNew={(val) => handleAddNewOption("brand", val)}
+        options={brands.map((b) => b.name)}
+        value={form.brand}
+        onChange={(v) => handleChange("brand", v)}
+        onAddNew={(v) => handleAddNewOption("brands", v)}
       />
-
       <SelectOrAdd
         label="Category"
-        options={options.category}
-        value={form.category}
-        onChange={(val) => handleChange("category", val)}
         collectionName="categories"
-        onAddNew={(val) => handleAddNewOption("category", val)}
+        options={categories.map((c) => c.name)}
+        value={form.category}
+        onChange={(v) => handleChange("category", v)}
+        onAddNew={(v) => handleAddNewOption("categories", v)}
       />
-
       <SelectOrAdd
         label="Subcategory"
-        options={options.subCategory}
-        value={form.subCategory}
-        onChange={(val) => handleChange("subCategory", val)}
         collectionName="subcategories"
-        onAddNew={(val) => handleAddNewOption("subCategory", val)}
+        options={subcategories.map((sc) => sc.name)}
+        value={form.subCategory}
+        onChange={(v) => handleChange("subCategory", v)}
+        onAddNew={(v) => handleAddNewOption("subcategories", v)}
       />
-
       <SelectOrAdd
         label="Group"
-        options={options.group}
-        value={form.group}
-        onChange={(val) => handleChange("group", val)}
         collectionName="groups"
-        onAddNew={(val) => handleAddNewOption("group", val)}
+        options={groups.map((g) => g.name)}
+        value={form.group}
+        onChange={(v) => handleChange("group", v)}
+        onAddNew={(v) => handleAddNewOption("groups", v)}
       />
-
-      <button
-        onClick={handleUpdate}
-        className="bg-green-600 text-white px-4 py-2 rounded w-full"
-      >
-        Update Product
-      </button>
+      <div className="pt-4">
+        <button
+          onClick={handleUpdate}
+          className="w-full bg-green-600 text-white py-2 rounded"
+        >
+          Update Product
+        </button>
+      </div>
     </div>
   );
 }

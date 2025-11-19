@@ -1,229 +1,146 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
+import debounce from "lodash.debounce";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-import debounce from "lodash.debounce";
-import UpdateProduct from "@/components/UpdateProduct";
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";
-import PreviewList from "@/components/ProductPage/PreviewList";
 import ProductCard from "@/components/ProductPage/ProductCard";
+import UpdateProduct from "@/components/UpdateProduct";
 
-import { getActiveData, getTabCounts } from "@/utils/dataHelpers";
-import { handlePreview, handleConfirmUpdate } from "@/utils/handleBulkActions";
-
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, updateDoc, arrayUnion } from "firebase/firestore";
-import { storage, db } from "@/lib/firebase";
-import { fetchAllData } from "@/redux/adminProductSlice";
-
-import imageCompression from "browser-image-compression";
-
-const collections = [
-  { name: "Product Collection", key: "productCollection" },
-  { name: "Group", key: "groups" },
-  { name: "Brand", key: "brands" },
-  { name: "Category", key: "categories" },
-  { name: "Subcategory", key: "subcategories" },
-  { name: "Supplier", key: "suppliers" },
-  { name: "Invoice", key: "suppinvo" },
-];
+import {
+  fetchMeta,
+  fetchProductsByField,
+  searchProductsByNameOrBarcode,
+} from "@/redux/adminProductSlice";
 
 export default function ProductPage() {
-  // 🔒 Auth states
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const router = useRouter();
-
-  // ✅ Redux setup
   const dispatch = useDispatch();
-  const dataState = useSelector((state) => state.adminProducts) || {};
-  const {
-    productCollection = [],
-    brands = [],
-    categories = [],
-    groups = [],
-    subcategories = [],
-    suppliers = [],
-    suppinvo = [],
-    loading = false,
-  } = dataState
+  const admin = useSelector((s) => s.adminProducts);
 
-  // ✅ Local UI states
-  const [activeTab, setActiveTab] = useState(collections[0].key);
+  // UI state
   const [browseTab, setBrowseTab] = useState("all");
+  const [selectedValue, setSelectedValue] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Bulk update state (optional)
   const [searchWord, setSearchWord] = useState("");
   const [fieldToUpdate, setFieldToUpdate] = useState("brand");
   const [newValue, setNewValue] = useState("");
   const [previewResults, setPreviewResults] = useState([]);
   const [updating, setUpdating] = useState(false);
-  const [selectedValue, setSelectedValue] = useState(null);
+
+  // Search state
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const loadingFiltered = admin.loadingFiltered;
 
- 
-
-  // 🔐 Check admin login
+  // Load meta once
   useEffect(() => {
-    const user = localStorage.getItem("user");
-    if (user) {
-      setIsAuthenticated(true);
-    } else {
-      router.push("/adminlogin");
-    }
-    setLoadingAuth(false);
-  }, [router]);
+    dispatch(fetchMeta("brands"));
+    dispatch(fetchMeta("categories"));
+    dispatch(fetchMeta("subcategories"));
+    dispatch(fetchMeta("groups"));
+    dispatch(fetchMeta("supplierCollection"));
+    dispatch(fetchMeta("suppinvoCollection"));
+  }, [dispatch]);
 
-  // 🔄 Fetch data after authentication
-  useEffect(() => {
-    if (isAuthenticated) dispatch(fetchAllData());
-  }, [dispatch, isAuthenticated]);
-
-  // 🧮 Helpers
-  const data = getActiveData(activeTab, dataState || {});
-  const tabCounts = getTabCounts(dataState || {});
-
-  // 🔍 Debounced Search
-  const handleSearch = useMemo(
+  // Debounced search
+  const debouncedSearch = useMemo(
     () =>
-      debounce((term) => {
-        if (!term) {
-          setFilteredProducts(productCollection || []);
+      debounce(async (term) => {
+        if (!term?.trim()) {
+          setSearchResults([]);
           return;
         }
-        const lowerTerm = term.toLowerCase();
-        const filtered = (productCollection || []).filter(
-          (p) =>
-            p?.name?.toLowerCase().includes(lowerTerm) ||
-            p?.barcode?.toLowerCase?.()?.includes(lowerTerm)
-        );
-        setFilteredProducts(filtered);
+
+        try {
+          const res = await dispatch(
+            searchProductsByNameOrBarcode({ term, limitResults: 50 })
+          );
+
+          // Directly use payload data, fallback to empty array
+          const latest = res.payload?.data || [];
+          setSearchResults(latest);
+        } catch (err) {
+          console.error("Search error:", err);
+          setSearchResults([]);
+        }
       }, 400),
-    [productCollection]
+    [dispatch]
   );
 
   useEffect(() => {
-    handleSearch(searchTerm);
-  }, [searchTerm, handleSearch]);
+    debouncedSearch(searchTerm);
+    return () => debouncedSearch.cancel();
+  }, [searchTerm, debouncedSearch]);
 
-  // 📦 Grouped Data
-  const groupedData = useMemo(() => {
-    const list = Array.isArray(productCollection) ? productCollection : [];
-    const buckets = {
-      category: {},
-      brand: {},
-      group: {},
-      subCategory: {},
-      supplier: {},
-      suppinvo: {},
-    };
+  // Handle click on a meta value
+  const handleValueClick = (field, value) => {
+    setSelectedValue(value);
+    dispatch(fetchProductsByField({ field, value }));
+  };
 
-    list.forEach((item) => {
-      [
-        "category",
-        "brand",
-        "group",
-        "subCategory",
-        "supplier",
-        "suppinvo",
-      ].forEach((key) => {
-        const val = item[key];
-        if (val) {
-          if (!buckets[key][val]) buckets[key][val] = [];
-          buckets[key][val].push(item);
-        }
-      });
-    });
-    return buckets;
-  }, [productCollection]);
-
-  // 🧰 Bulk Update Handlers
-  const previewHandler = () =>
-    handlePreview({
-      activeTab,
-      searchWord,
-      fieldToUpdate,
-      newValue,
-      setUpdating,
-      setPreviewResults,
-    });
-
-  const confirmHandler = () =>
-    handleConfirmUpdate({
-      activeTab,
-      searchWord,
-      fieldToUpdate,
-      newValue,
-      previewResults,
-      setUpdating,
-      dispatch,
-      setPreviewResults,
-    });
-
-  // 📤 Image Upload Handler
-  const handleUpload = async (productId, e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setUploading(true);
-
-    try {
-      // ✅ Compress image before upload
-      const compressedFile = await imageCompression(file, {
-        maxSizeMB: 0.6, // Target ≈ 600 KB
-        maxWidthOrHeight: 1280, // Reduce huge resolution
-        maxIteration: 15,
-        useWebWorker: true,
-      });
-
-      // ✅ Use compressed file instead of original
-      const storageRef = ref(
-        storage,
-        `products/${productId}/${compressedFile.name}`
-      );
-      await uploadBytes(storageRef, compressedFile);
-
-      const url = await getDownloadURL(storageRef);
-
-      const productRef = doc(db, "productCollection", productId);
-      await updateDoc(productRef, { images: arrayUnion(url) });
-
-      alert("✅ Image uploaded successfully!");
-      dispatch(fetchAllData());
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error uploading image");
-    } finally {
-      setUploading(false);
+  // Get meta list for each tab safely
+  const getMetaListForTab = (tab) => {
+    switch (tab) {
+      case "brand":
+        return admin.meta.brands || [];
+      case "category":
+        return admin.meta.categories || [];
+      case "group":
+        return admin.meta.groups || [];
+      case "subCategory":
+        return admin.meta.subcategories || [];
+      case "supplier":
+        return admin.meta.supplierCollection || [];
+      case "suppinvo":
+        return admin.meta.suppinvoCollection || [];
+      default:
+        return [];
     }
   };
 
-  const displayedProducts = searchTerm.trim()
-    ? filteredProducts
-    : productCollection;
+  // Map meta item to display name
+  const getMetaDisplayName = (tab, metaItem) => {
+    switch (tab) {
+      case "brand":
+      case "category":
+      case "group":
+      case "subCategory":
+        return metaItem.name;
+      case "supplier":
+        return metaItem.supplier;
+      case "suppinvo":
+        return metaItem.suppinvo;
+      default:
+        return "";
+    }
+  };
 
-  // 🔒 Auth Loading State
-  if (loadingAuth) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-gray-700">
-        Checking authentication...
-      </div>
-    );
-  }
+  const productsForSelected = (field, value) => {
+    const fieldData = admin.filtered[field] || {};
+    // Use safeValue in case value is empty
+    const safeValue = value && value.trim() !== "" ? value : "__empty__";
+    return fieldData[safeValue]?.products || [];
+  };
 
-  // 🚫 Redirect if not authenticated
-  if (!isAuthenticated) return null;
+  const tabs = [
+    { name: "All Products", key: "all" },
+    { name: "Brand", key: "brand" },
+    { name: "Category", key: "category" },
+    { name: "Group", key: "group" },
+    { name: "Subcategory", key: "subCategory" },
+    { name: "Supplier", key: "supplier" },
+    { name: "Invoice", key: "suppinvo" },
+  ];
 
-  // ✅ Protected Page Render
   return (
     <div className="p-6 flex gap-6 relative">
       <div className="flex-1">
-        {/* Bulk Update Controls */}
+        {/* Bulk update panel */}
         <BulkUpdateControls
           searchWord={searchWord}
           setSearchWord={setSearchWord}
@@ -233,13 +150,10 @@ export default function ProductPage() {
           setNewValue={setNewValue}
           previewResults={previewResults}
           updating={updating}
-          onPreview={previewHandler}
-          onConfirm={confirmHandler}
+          onPreview={(items) => setPreviewResults(items)}
+          onConfirm={() => {}}
         />
 
-        <PreviewList previewResults={previewResults} />
-
-        {/* Product Browser */}
         <div className="mt-6">
           <div className="flex gap-4 mb-2">
             <h2 className="text-lg font-semibold mb-3 text-gray-800">
@@ -247,7 +161,7 @@ export default function ProductPage() {
             </h2>
             <Link
               href="/adminPannel"
-              className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
+              className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg"
             >
               Go to Admin Panel <ArrowRight size={16} />
             </Link>
@@ -255,92 +169,87 @@ export default function ProductPage() {
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {[
-              "all",
-              "category",
-              "brand",
-              "group",
-              "subCategory",
-              "supplier",
-              "suppinvo",
-            ].map((tab) => (
+            {tabs.map((t) => (
               <button
-                key={tab}
+                key={t.key}
                 onClick={() => {
+                  setBrowseTab(t.key);
                   setSelectedValue(null);
-                  setBrowseTab(tab);
+                  setSearchTerm("");
                 }}
                 className={`px-4 py-2 rounded-lg border text-sm capitalize transition ${
-                  browseTab === tab
+                  browseTab === t.key
                     ? "bg-black text-white border-black"
                     : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
                 }`}
               >
-                {tab === "all"
-                  ? "All Products"
-                  : tab === "subCategory"
-                  ? "Subcategory"
-                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {t.name}
               </button>
             ))}
           </div>
 
-          {/* Display Products */}
+          {/* Content area */}
           {browseTab === "all" ? (
             <div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">
                   {searchTerm
-                    ? `Search Results (${displayedProducts.length})`
-                    : `All Products (${displayedProducts.length})`}
+                    ? `Search Results (${searchResults.length})`
+                    : "Search Products"}
                 </h3>
-                <div className="mt-6 mb-4">
+
+                <div className="mt-2 w-full max-w-lg">
                   <input
                     type="text"
                     placeholder="Search by name or barcode..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full max-w-lg border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
                   />
                 </div>
               </div>
 
-              {displayedProducts.length > 0 ? (
+              {loadingFiltered ? (
+                <p>Searching…</p>
+              ) : searchTerm && searchResults.length === 0 ? (
+                <p className="text-gray-500 mt-6">
+                  No products found for "{searchTerm}".
+                </p>
+              ) : searchResults.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {displayedProducts.map((item) => (
+                  {searchResults.map((item) => (
                     <ProductCard
-                      key={item.code}
+                      key={item.id || item.code}
                       item={item}
-                      uploading={uploading}
-                      onUpload={handleUpload}
                       onEdit={setSelectedProduct}
                     />
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center mt-6">
-                  No products found.
+                <p className="text-gray-500 mt-6">
+                  Enter a search term to find products.
                 </p>
               )}
             </div>
           ) : !selectedValue ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {groupedData?.[browseTab] &&
-              Object.keys(groupedData[browseTab] || {}).length > 0 ? (
-                Object.keys(groupedData[browseTab]).map((value) => (
-                  <div
-                    key={value}
-                    onClick={() => setSelectedValue(value)}
-                    className="p-3 border rounded-lg shadow-sm hover:shadow-md cursor-pointer bg-white text-center"
-                  >
-                    <h3 className="font-medium text-gray-800 truncate">
-                      {value}
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      {groupedData[browseTab][value]?.length || 0} items
-                    </p>
-                  </div>
-                ))
+              {getMetaListForTab(browseTab).length > 0 ? (
+                getMetaListForTab(browseTab)
+                  .filter((m) => getMetaDisplayName(browseTab, m)?.trim())
+                  .map((metaItem) => {
+                    const displayName = getMetaDisplayName(browseTab, metaItem);
+                    return (
+                      <div
+                        key={metaItem.id || displayName}
+                        onClick={() => handleValueClick(browseTab, displayName)}
+                        className="p-3 border rounded-lg shadow-sm hover:shadow-md cursor-pointer bg-white text-center"
+                      >
+                        <h3 className="font-medium text-gray-800 truncate">
+                          {displayName}
+                        </h3>
+                      </div>
+                    );
+                  })
               ) : (
                 <p className="col-span-full text-gray-500 text-center">
                   No data found.
@@ -355,25 +264,32 @@ export default function ProductPage() {
               >
                 ← Back
               </button>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(groupedData?.[browseTab]?.[selectedValue] || []).map(
-                  (item) => (
-                    <ProductCard
-                      key={item.code}
-                      item={item}
-                      uploading={uploading}
-                      onUpload={handleUpload}
-                      onEdit={setSelectedProduct}
-                    />
-                  )
-                )}
-              </div>
+
+              {admin.loadingFiltered ? (
+                <p>Loading…</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {productsForSelected(browseTab, selectedValue).length > 0 ? (
+                    productsForSelected(browseTab, selectedValue).map(
+                      (item) => (
+                        <ProductCard
+                          key={item.id || item.code}
+                          item={item}
+                          onEdit={setSelectedProduct}
+                        />
+                      )
+                    )
+                  ) : (
+                    <p className="text-gray-500">No products for this value.</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Right-side Edit Panel */}
+      {/* Edit panel */}
       {selectedProduct && (
         <>
           <div className="fixed inset-y-0 right-0 w-full md:w-1/3 bg-white shadow-xl z-50">
@@ -400,7 +316,7 @@ export default function ProductPage() {
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
             onClick={() => setSelectedProduct(null)}
-          ></div>
+          />
         </>
       )}
     </div>

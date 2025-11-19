@@ -25,9 +25,11 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
     setStatus("");
 
     try {
-      const colRef = collection(db, "productCollection");
+      const productRef = collection(db, "productCollection");
+      const supplierRef = collection(db, "supplierCollection");
+      const suppInvoRef = collection(db, "suppinvoCollection");
 
-      // 1️⃣ Combine duplicate entries (by barcode + name)
+      // 1️⃣ Combine duplicates on barcode + name
       const aggregatedData = dataArray.reduce((acc, item) => {
         const key = `${item.barcode}_${item.name}`;
         if (acc[key]) {
@@ -37,15 +39,54 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
         }
         return acc;
       }, {});
-
       const finalDataArray = Object.values(aggregatedData);
 
-      // 2️⃣ Sync with Firestore
       for (const item of finalDataArray) {
         if (!item.barcode) continue;
 
+        // ----------------------------
+        // 2️⃣ CREATE SUPPLIER COLLECTION (NO UPDATE)
+        // ----------------------------
+        if (item.supplier) {
+          const supplierQ = query(
+            supplierRef,
+            where("supplier", "==", item.supplier)
+          );
+          const supplierSnap = await getDocs(supplierQ);
+
+          if (supplierSnap.empty) {
+            await addDoc(supplierRef, {
+              supplier: item.supplier,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+
+        // ----------------------------
+        // 3️⃣ CREATE SUPPINVO COLLECTION (NO UPDATE)
+        // ----------------------------
+        if (item.suppinvo) {
+          const invoQ = query(
+            suppInvoRef,
+            where("suppinvo", "==", item.suppinvo)
+          );
+          const invoSnap = await getDocs(invoQ);
+
+          if (invoSnap.empty) {
+            await addDoc(suppInvoRef, {
+              suppinvo: item.suppinvo,
+              supplier: item.supplier || "",
+              suppdate: item.suppdate || "",
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+
+        // ----------------------------
+        // 4️⃣ PRODUCT COLLECTION (USE EXISTING LOGIC)
+        // ----------------------------
         const q = query(
-          colRef,
+          productRef,
           where("barcode", "==", item.barcode),
           where("name", "==", item.name)
         );
@@ -55,7 +96,6 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
           const existingDoc = querySnapshot.docs[0];
           const existingData = existingDoc.data();
 
-          // ✅ Preserve existing brand/category/subCategory/group
           const updatedFields = {
             stock: Number(item.stock),
             cost: item.cost,
@@ -65,7 +105,6 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
             updatedAt: new Date().toISOString(),
           };
 
-          // 🧠 Merge existing brand/category only if they already exist
           const preservedFields = {
             brand: existingData.brand || "",
             category: existingData.category || "",
@@ -76,22 +115,14 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
           await updateDoc(existingDoc.ref, {
             ...existingData,
             ...updatedFields,
-            ...preservedFields, // ✅ ensures no null overwrites
+            ...preservedFields,
           });
-
-          // console.log(
-          //   `UPDATED: ${item.name} (${item.barcode}) | New Stock: ${item.stock}`
-          // );
         } else {
-          // 🆕 Create new document
-          await addDoc(colRef, {
+          await addDoc(productRef, {
             ...item,
             stock: Number(item.stock),
             createdAt: new Date().toISOString(),
           });
-          console.log(
-            `CREATED: ${item.name} (${item.barcode}) | Initial Stock: ${item.stock}`
-          );
         }
       }
 

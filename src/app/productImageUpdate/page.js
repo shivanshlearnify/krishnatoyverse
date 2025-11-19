@@ -3,14 +3,16 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import ImageUploadModal from "./ImageUploadModal";
-import { fetchAllData } from "@/redux/adminProductSlice";
+
+import { fetchMeta, fetchProductsByField } from "@/redux/adminProductSlice";
+
 import { ref, deleteObject } from "firebase/storage";
 import { doc, updateDoc, arrayRemove } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
+
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { toast } from "react-toastify";
-
 import { useRouter } from "next/navigation";
 
 export default function ProductImageUpdate() {
@@ -20,16 +22,6 @@ export default function ProductImageUpdate() {
   const products = useSelector(
     (state) => state.adminProducts?.productCollection ?? []
   );
-  const handleImageUploaded = (url) => {
-    setSelectedProduct((prev) => ({
-      ...prev,
-      images: [...(prev.images || []), url],
-    }));
-  };
-
-  useEffect(() => {
-    dispatch(fetchAllData());
-  }, [dispatch]);
 
   const [query, setQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -37,8 +29,16 @@ export default function ProductImageUpdate() {
   const [activeProductForView, setActiveProductForView] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // -------- Fetch All Products + Meta Once -------- //
+  useEffect(() => {
+    dispatch(fetchMeta());
+    dispatch(fetchProductsByField({ field: "all" }));
+  }, [dispatch]);
+
+  // -------- Search Filter -------- //
   const filtered = useMemo(() => {
     if (!query.trim()) return products;
+
     const q = query.trim().toLowerCase();
     return products.filter(
       (p) =>
@@ -48,32 +48,39 @@ export default function ProductImageUpdate() {
     );
   }, [products, query]);
 
+  const handleImageUploaded = (url) => {
+    setSelectedProduct((prev) => ({
+      ...prev,
+      images: [...(prev.images || []), url],
+    }));
+  };
+
+  // -------- Refresh Button -------- //
   const handleRefresh = async () => {
     try {
-      const result = await dispatch(fetchAllData(true)).unwrap(); // ✅ unwrap to get actual payload
+      await dispatch(fetchMeta());
+      await dispatch(fetchProductsByField({ field: "all", force: true }));
 
-      if (result.cached) {
-        toast.info("Using cached data ⚡", { position: "top-center" });
-      } else {
-        toast.success("Data refreshed successfully! 🎉", {
-          position: "top-center",
-        });
-      }
+      toast.success("Data refreshed successfully! 🎉", {
+        position: "top-center",
+      });
     } catch (error) {
-      console.error("Error refreshing data:", error);
+      console.error("Error refreshing:", error);
       toast.error("Failed to refresh data ❌", { position: "top-center" });
     }
   };
 
+  // -------- Delete Single Image -------- //
   const handleDeleteImage = async (url, product) => {
     if (!confirm("Are you sure you want to delete this image?")) return;
     setDeleting(true);
+
     try {
       const imageRef = ref(storage, url);
       await deleteObject(imageRef);
 
-      const productRef = doc(db, "productCollection", product.id);
-      await updateDoc(productRef, { images: arrayRemove(url) });
+      const prodRef = doc(db, "productCollection", product.id);
+      await updateDoc(prodRef, { images: arrayRemove(url) });
 
       alert("✅ Image deleted successfully!");
     } catch (err) {
@@ -83,6 +90,7 @@ export default function ProductImageUpdate() {
       setDeleting(false);
     }
   };
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     router.push("/adminlogin");
@@ -90,6 +98,7 @@ export default function ProductImageUpdate() {
 
   return (
     <>
+      {/* ---------- Top Buttons ---------- */}
       <div className="flex gap-3">
         <button
           onClick={handleRefresh}
@@ -97,18 +106,21 @@ export default function ProductImageUpdate() {
         >
           🔄 Refresh Data
         </button>
+
         <Link
           href="/adminPannel"
           className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
         >
           adminPannel <ArrowRight size={16} />
         </Link>
+
         <Link
           href="/productPage"
           className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
         >
           Go to Products <ArrowRight size={16} />
         </Link>
+
         <button
           onClick={handleLogout}
           className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition"
@@ -117,9 +129,11 @@ export default function ProductImageUpdate() {
         </button>
       </div>
 
+      {/* ---------- Main Section ---------- */}
       <div className="max-w-5xl mx-auto p-4">
         <h1 className="text-2xl font-bold mb-4">Product Image Update Page</h1>
 
+        {/* Search Input */}
         <div className="mb-4">
           <input
             value={query}
@@ -129,6 +143,7 @@ export default function ProductImageUpdate() {
           />
         </div>
 
+        {/* ---------- Product Grid ---------- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filtered.length === 0 && (
             <div className="text-sm text-gray-500 col-span-full">
@@ -138,6 +153,7 @@ export default function ProductImageUpdate() {
 
           {filtered.map((product) => {
             const image = product?.images?.[0] || "/placeholder.png";
+
             return (
               <div
                 key={product.id}
@@ -148,6 +164,7 @@ export default function ProductImageUpdate() {
                   alt={product.name}
                   className="w-full h-40 object-cover rounded-md"
                 />
+
                 <h3 className="mt-3 text-lg font-medium">{product.name}</h3>
                 <p className="text-sm text-gray-600">₹{product.rate}</p>
 
@@ -184,7 +201,7 @@ export default function ProductImageUpdate() {
           })}
         </div>
 
-        {/* ---- UPLOAD IMAGES MODAL ---- */}
+        {/* ---------- Upload Modal ---------- */}
         {selectedProduct && (
           <ImageUploadModal
             product={selectedProduct}
@@ -193,13 +210,14 @@ export default function ProductImageUpdate() {
           />
         )}
 
-        {/* ---- VIEW IMAGES MODAL ---- */}
+        {/* ---------- View Images Modal ---------- */}
         {showImages && activeProductForView && (
           <>
             <div
               className="fixed inset-0 bg-black bg-opacity-50 z-40"
               onClick={() => setShowImages(false)}
             />
+
             <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
               <div className="bg-white rounded-2xl shadow-lg max-w-2xl w-full max-h-[80vh] overflow-auto p-6 relative">
                 <button
@@ -225,6 +243,7 @@ export default function ProductImageUpdate() {
                           alt="product"
                           className="w-full h-32 object-cover"
                         />
+
                         <button
                           onClick={() =>
                             handleDeleteImage(url, activeProductForView)

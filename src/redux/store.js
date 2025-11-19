@@ -16,7 +16,6 @@ import productReducer from "./productSlice";
 import cartReducer from "./cartSlice";
 import cartDrawerReducer from "./cartDrawerSlice";
 
-// ✅ Combine reducers
 const rootReducer = combineReducers({
   adminProducts: adminProductReducer,
   products: productReducer,
@@ -24,17 +23,36 @@ const rootReducer = combineReducers({
   cartDrawer: cartDrawerReducer,
 });
 
-// ✅ Persist Config
+const CACHE_KEY = "persist:root";
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+
+// Check timestamp on load
+const checkCacheExpiry = () => {
+  const persisted = localStorage.getItem(CACHE_KEY);
+  if (!persisted) return;
+
+  try {
+    const state = JSON.parse(persisted);
+    const timestamp = state.adminProducts?.lastFetched || 0;
+    if (Date.now() - timestamp > CACHE_DURATION) {
+      localStorage.removeItem(CACHE_KEY); // purge if expired
+    }
+  } catch (err) {
+    console.warn("Failed to parse persisted state:", err);
+  }
+};
+
+// Run expiry check before persistor initializes
+checkCacheExpiry();
+
 const persistConfig = {
   key: "root",
   storage,
   whitelist: ["products", "cart", "adminProducts"],
- // only persist these
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
-// ✅ Configure store with persist middleware
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
