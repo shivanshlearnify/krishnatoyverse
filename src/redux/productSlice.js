@@ -1,3 +1,4 @@
+// productSlice.js
 "use client";
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
@@ -14,6 +15,8 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+// -------------------- CONSTANTS --------------------
+const DEFAULT_PAGE_SIZE = 20;
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
 // -------------------- FETCH META --------------------
@@ -26,41 +29,55 @@ export const fetchMeta = createAsyncThunk(
   }
 );
 
-// -------------------- FETCH PRODUCTS BY FILTER --------------------
+// -------------------- FETCH PRODUCTS BY FILTER (CACHED + PAGINATED) --------------------
 export const fetchProductsByFilter = createAsyncThunk(
   "products/fetchByFilter",
-  async ({ field, value, pageSize = 20 }, { getState }) => {
-    const safeValue = value && value.trim() !== "" ? value : "__empty__";
+  async ({ field, value, pageSize = DEFAULT_PAGE_SIZE }, { getState }) => {
+    const safeValue = (value?.trim && value.trim()) || "__empty__";
     const state = getState();
 
+    // Check cache
     const cached = state.products.filtered?.[field]?.[safeValue];
-    const lastFetched = cached?.lastFetched || 0;
-    const lastVisibleId = cached?.lastVisibleId || null;
+    const cacheValid =
+      cached?.lastFetched &&
+      Date.now() - cached.lastFetched < CACHE_DURATION;
 
-    // Return cache if valid
-    if (cached && Date.now() - lastFetched < CACHE_DURATION) {
+    // If cache exists AND no need for next page → return cached data
+    if (cacheValid && !cached?.lastVisibleId) {
       return {
         field,
         value: safeValue,
-        products: cached.products,
-        lastVisibleId,
         fromCache: true,
+        products: cached.products,
+        lastVisibleId: cached.lastVisibleId,
+        isNextPage: false,
       };
     }
 
-    // Query Firestore
+    const isNextPage = Boolean(cached?.lastVisibleId);
     const productRef = collection(db, "productCollection");
-    let q = query(productRef, where(field, "==", value), limit(pageSize));
 
-    if (lastVisibleId) {
-      const lastDocRef = doc(db, "productCollection", lastVisibleId);
+    let q = query(
+      productRef,
+      where(field, "==", value),
+      orderBy("createdAt", "desc"),
+      limit(pageSize)
+    );
+
+    // For pagination: load next page using startAfter()
+    if (isNextPage) {
+      const lastDocRef = doc(db, "productCollection", cached.lastVisibleId);
       const lastDocSnap = await getDoc(lastDocRef);
-      q = query(
-        productRef,
-        where(field, "==", value),
-        startAfter(lastDocSnap),
-        limit(pageSize)
-      );
+
+      if (lastDocSnap.exists()) {
+        q = query(
+          productRef,
+          where(field, "==", value),
+          orderBy("createdAt", "desc"),
+          startAfter(lastDocSnap),
+          limit(pageSize)
+        );
+      }
     }
 
     const snap = await getDocs(q);
@@ -73,6 +90,7 @@ export const fetchProductsByFilter = createAsyncThunk(
       products,
       lastVisibleId: newLastVisibleId,
       fetchedAt: Date.now(),
+      isNextPage,
     };
   }
 );
@@ -89,7 +107,7 @@ export const searchProducts = createAsyncThunk(
     const lowerTerm = term.toLowerCase();
     const filtered = all.filter((p) => {
       const name = p.name?.toLowerCase() || "";
-      const barcode = p.barcode?.toLowerCase() || "";
+      const barcode = (p.barcode || "").toLowerCase();
       return name.includes(lowerTerm) || barcode.includes(lowerTerm);
     });
 
@@ -107,6 +125,7 @@ const productSlice = createSlice({
       subcategories: [],
       groups: [],
     },
+
     filtered: {
       brand: {},
       category: {},
@@ -114,18 +133,27 @@ const productSlice = createSlice({
       group: {},
       search: { last: [] },
     },
+
     searchResults: [],
     loadingMeta: false,
     loadingFiltered: false,
     loadingSearch: false,
     error: null,
   },
+
   reducers: {
     clearFilteredForField: (state, action) => {
-      const field = action.payload;
-      state.filtered[field] = {};
+      state.filtered[action.payload] = {};
+    },
+    clearFilteredValue: (state, action) => {
+      const { field, value } = action.payload;
+      const safeValue = value?.toString().trim() || "__empty__";
+      if (state.filtered[field]?.[safeValue]) {
+        delete state.filtered[field][safeValue];
+      }
     },
   },
+
   extraReducers: (builder) => {
     builder
       // ---------------- META ----------------
@@ -145,13 +173,22 @@ const productSlice = createSlice({
       // ---------------- FILTERED PRODUCTS ----------------
       .addCase(fetchProductsByFilter.pending, (state) => {
         state.loadingFiltered = true;
+        state.error = null;
       })
       .addCase(fetchProductsByFilter.fulfilled, (state, action) => {
-        const { field, value, products, lastVisibleId, fetchedAt, fromCache } =
+        const { field, value, products, lastVisibleId, fetchedAt, isNextPage, fromCache } =
           action.payload;
+
         if (!field) return;
 
-        // Initialize only if first-time load for this filter
+        // If result came from cache → do nothing
+        if (fromCache) {
+          state.loadingFiltered = false;
+          return;
+        }
+
+        if (!state.filtered[field]) state.filtered[field] = {};
+
         if (!state.filtered[field][value]) {
           state.filtered[field][value] = {
             products: [],
@@ -160,12 +197,17 @@ const productSlice = createSlice({
           };
         }
 
-        state.filtered[field][value].products = [
-          ...state.filtered[field][value].products,
-          ...products,
-        ];
+        if (isNextPage) {
+          const existing = state.filtered[field][value].products || [];
+          const ids = new Set(existing.map((x) => x.id));
+          const toAdd = products.filter((p) => !ids.has(p.id));
+          state.filtered[field][value].products = [...existing, ...toAdd];
+        } else {
+          state.filtered[field][value].products = products;
+        }
+
         state.filtered[field][value].lastVisibleId = lastVisibleId;
-        state.filtered[field][value].lastFetched = fetchedAt || Date.now();
+        state.filtered[field][value].lastFetched = fetchedAt;
         state.loadingFiltered = false;
       })
       .addCase(fetchProductsByFilter.rejected, (state, action) => {
@@ -188,5 +230,7 @@ const productSlice = createSlice({
   },
 });
 
-export const { clearFilteredForField } = productSlice.actions;
+export const { clearFilteredForField, clearFilteredValue } =
+  productSlice.actions;
+
 export default productSlice.reducer;

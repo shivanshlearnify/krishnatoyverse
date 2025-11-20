@@ -2,12 +2,15 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useRouter } from "next/navigation"; // <— IMPORTANT
 import debounce from "lodash.debounce";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { arrayUnion } from "firebase/firestore";
+import { storage } from "@/lib/firebase";
 
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";
 import ProductCard from "@/components/ProductPage/ProductCard";
@@ -20,9 +23,15 @@ import {
 } from "@/redux/adminProductSlice";
 
 export default function ProductPage() {
+  const router = useRouter();
   const dispatch = useDispatch();
   const admin = useSelector((s) => s.adminProducts);
 
+  // ---------------------------------------------------------
+  // ✅ SAME AUTH SETUP AS ADMIN PANEL
+  // ---------------------------------------------------------
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
   // UI state
   const [browseTab, setBrowseTab] = useState("all");
   const [selectedValue, setSelectedValue] = useState(null);
@@ -38,9 +47,19 @@ export default function ProductPage() {
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const loadingFiltered = admin.loadingFiltered;
 
-  // Load meta once
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+
+    if (user) {
+      setIsAuthenticated(true);
+    } else {
+      router.replace("/adminlogin");
+    }
+
+    setLoading(false);
+  }, [router]);
+
   useEffect(() => {
     dispatch(fetchMeta("brands"));
     dispatch(fetchMeta("categories"));
@@ -49,7 +68,6 @@ export default function ProductPage() {
     dispatch(fetchMeta("supplierCollection"));
     dispatch(fetchMeta("suppinvoCollection"));
   }, [dispatch]);
-
   // Debounced search
   const debouncedSearch = useMemo(
     () =>
@@ -79,6 +97,20 @@ export default function ProductPage() {
     debouncedSearch(searchTerm);
     return () => debouncedSearch.cancel();
   }, [searchTerm, debouncedSearch]);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-gray-700">
+        Checking authentication...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
+
+  const loadingFiltered = admin.loadingFiltered;
+
+  // Load meta once
+
 
   // Handle click on a meta value
   const handleValueClick = (field, value) => {
@@ -130,59 +162,87 @@ export default function ProductPage() {
     return fieldData[safeValue]?.products || [];
   };
   const handleConfirmBulkUpdate = async () => {
-  if (!previewResults || previewResults.length === 0) {
-    alert("No items to update.");
-    return;
-  }
+    if (!previewResults || previewResults.length === 0) {
+      alert("No items to update.");
+      return;
+    }
 
-  if (!newValue?.trim()) {
-    alert("Select or enter a new value.");
-    return;
-  }
+    if (!newValue?.trim()) {
+      alert("Select or enter a new value.");
+      return;
+    }
 
-  const ok = confirm(
-    `Are you sure? This will update ${previewResults.length} products.`
-  );
-  if (!ok) return;
+    const ok = confirm(
+      `Are you sure? This will update ${previewResults.length} products.`
+    );
+    if (!ok) return;
 
-  try {
-    setUpdating(true);
+    try {
+      setUpdating(true);
 
-    const updates = previewResults.map(async (item) => {
-      console.log(item);
-      
-      const docRef = doc(db, "productCollection", item.id);
-      return updateDoc(docRef, {
-        [fieldToUpdate]: newValue.trim(),
+      const updates = previewResults.map(async (item) => {
+        console.log(item);
+
+        const docRef = doc(db, "productCollection", item.id);
+        return updateDoc(docRef, {
+          [fieldToUpdate]: newValue.trim(),
+          updatedAt: new Date().toISOString(),
+        });
+      });
+
+      await Promise.all(updates);
+
+      alert("Bulk update completed!");
+
+      // Refresh meta lists
+      dispatch(fetchMeta("brands"));
+      dispatch(fetchMeta("categories"));
+      dispatch(fetchMeta("subcategories"));
+      dispatch(fetchMeta("groups"));
+      dispatch(fetchMeta("supplierCollection"));
+      dispatch(fetchMeta("suppinvoCollection"));
+
+      // Clear UI
+      setSearchWord("");
+      setNewValue("");
+      setPreviewResults([]);
+    } catch (err) {
+      console.error("Bulk update error:", err);
+      alert("Failed to update products.");
+    }
+
+    setUpdating(false);
+  };
+  const handleUpload = async (productId, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Create file path
+      const storageRef = ref(storage, `products/${productId}/${file.name}`);
+
+      // Upload file
+      await uploadBytes(storageRef, file);
+
+      // Get URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Add to Firestore images array
+      const productRef = doc(db, "productCollection", productId);
+      await updateDoc(productRef, {
+        images: arrayUnion(downloadURL),
         updatedAt: new Date().toISOString(),
       });
-    });
 
-    await Promise.all(updates);
+      alert("Image uploaded successfully!");
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Failed to upload image.");
+    }
 
-    alert("Bulk update completed!");
-
-    // Refresh meta lists
-    dispatch(fetchMeta("brands"));
-    dispatch(fetchMeta("categories"));
-    dispatch(fetchMeta("subcategories"));
-    dispatch(fetchMeta("groups"));
-    dispatch(fetchMeta("supplierCollection"));
-    dispatch(fetchMeta("suppinvoCollection"));
-
-    // Clear UI
-    setSearchWord("");
-    setNewValue("");
-    setPreviewResults([]);
-
-  } catch (err) {
-    console.error("Bulk update error:", err);
-    alert("Failed to update products.");
-  }
-
-  setUpdating(false);
-};
-
+    // Clear input for next upload
+    e.target.value = "";
+  };
 
   const tabs = [
     { name: "All Products", key: "all" },
@@ -209,7 +269,6 @@ export default function ProductPage() {
           updating={updating}
           onPreview={(items) => setPreviewResults(items)}
           onConfirm={handleConfirmBulkUpdate}
-
         />
 
         <div className="mt-6">
@@ -280,6 +339,8 @@ export default function ProductPage() {
                       key={item.id || item.code}
                       item={item}
                       onEdit={setSelectedProduct}
+                      onUpload={handleUpload}
+                      uploading={false}
                     />
                   ))}
                 </div>
@@ -334,6 +395,8 @@ export default function ProductPage() {
                           key={item.id || item.code}
                           item={item}
                           onEdit={setSelectedProduct}
+                          onUpload={handleUpload}
+                          uploading={false}
                         />
                       )
                     )

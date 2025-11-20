@@ -84,7 +84,14 @@ export default function CategoryPage() {
       </div>
 
       {loading && products.length > 0 && (
-        <p className="text-center text-gray-500 mt-4">Loading more products...</p>
+        <p className="text-center text-gray-500 mt-4">
+          Loading more products...
+        </p>
+      )}
+      {!loading && lastVisibleId === null && products.length > 0 && (
+        <p className="text-center text-gray-500 mt-4">
+          That’s all folks 👋 No more products to show.
+        </p>
       )}
     </div>
   );

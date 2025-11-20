@@ -55,7 +55,9 @@ export default function AdminPage() {
     ];
 
     try {
-      await Promise.all(collections.map((col) => dispatch(fetchMeta(col)).unwrap()));
+      await Promise.all(
+        collections.map((col) => dispatch(fetchMeta(col)).unwrap())
+      );
       toast.success("Meta collections refreshed successfully ✅", {
         position: "top-center",
       });
@@ -97,21 +99,6 @@ export default function AdminPage() {
         </div>
 
         <div className="flex gap-3">
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 disabled:opacity-50"
-          >
-            {refreshing ? "Refreshing..." : "🔄 Refresh"}
-          </button>
-
-          <Link
-            href="/productImageUpdate"
-            className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"
-          >
-            productImageUpdate <ArrowRight size={16} />
-          </Link>
-
           <Link
             href="/productPage"
             className="flex items-center gap-2 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition"

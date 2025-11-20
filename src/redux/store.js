@@ -1,3 +1,4 @@
+// store.js
 import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import {
   persistStore,
@@ -26,15 +27,44 @@ const rootReducer = combineReducers({
 const CACHE_KEY = "persist:root";
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
-// Purge expired cache
+// Purge expired cache (run once at startup)
+// The persisted structure stores serialized reducers; we expect `products.lastFetchedAt` to be present.
 const checkCacheExpiry = () => {
-  const persisted = localStorage.getItem(CACHE_KEY);
-  if (!persisted) return;
   try {
+    const persisted = localStorage.getItem(CACHE_KEY);
+    if (!persisted) return;
+
     const state = JSON.parse(persisted);
-    const timestamp = state.products?.lastFetchedAt || 0;
+
+    // The persisted structure may nest the reducer state under "products" key or in serialized string.
+    // Try a couple ways to find a timestamp robustly.
+
+    // Case 1: direct object (modern redux-persist)
+    const maybeProducts = state.products ?? null;
+
+    // If it's a string (because persist stores nested JSON as string), parse it
+    let productsState = null;
+    if (typeof maybeProducts === "string") {
+      try {
+        productsState = JSON.parse(maybeProducts);
+      } catch (err) {
+        productsState = null;
+      }
+    } else {
+      productsState = maybeProducts;
+    }
+
+    const timestamp = productsState?.lastFetchedAt || 0;
+    if (!timestamp) return; // nothing fetched yet — don't purge
+
     if (Date.now() - timestamp > CACHE_DURATION) {
       localStorage.removeItem(CACHE_KEY);
+      // also remove the old redux-persist keys to avoid partial rehydrates
+      try {
+        localStorage.removeItem("persist:root");
+      } catch (e) {
+        // ignore
+      }
     }
   } catch (err) {
     console.warn("Failed to parse persisted state:", err);
