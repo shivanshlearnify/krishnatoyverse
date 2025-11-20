@@ -15,7 +15,6 @@ import { db } from "@/lib/firebase";
 // CONSTANTS
 // ----------------------------
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
-const FIELDS = ["brand", "category", "subCategory", "group", "supplier", "suppinvo"];
 
 // ----------------------------
 // FETCH META COLLECTIONS
@@ -43,12 +42,18 @@ export const fetchProductsByField = createAsyncThunk(
     const state = getState();
     const cached = state.adminProducts.filtered?.[field]?.[safeValue];
 
-    if (cached?.lastFetched && Date.now() - cached.lastFetched < CACHE_DURATION) {
+    if (
+      cached?.lastFetched &&
+      Date.now() - cached.lastFetched < CACHE_DURATION
+    ) {
       return { field, value: safeValue, data: cached.products, fromCache: true };
     }
 
     // Fetch from Firestore
-    const q = query(collection(db, "productCollection"), where(field, "==", value));
+    const q = query(
+      collection(db, "productCollection"),
+      where(field, "==", value)
+    );
     const snap = await getDocs(q);
     const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -57,47 +62,62 @@ export const fetchProductsByField = createAsyncThunk(
 );
 
 // ----------------------------
-// SEARCH PRODUCTS BY NAME OR BARCODE
+// NORMAL SEARCH: NAME + BARCODE
 // ----------------------------
 export const searchProductsByNameOrBarcode = createAsyncThunk(
   "admin/searchProducts",
-  async ({ term, limitResults = 50 }) => {
+  async ({ term }) => {
     if (!term?.trim()) return { data: [] };
-    const results = new Map();
 
-    // Barcode exact match
-    const barcodeQ = query(
-      collection(db, "productCollection"),
-      where("barcode", "==", term),
-      limit(limitResults)
-    );
-    const barcodeSnap = await getDocs(barcodeQ);
-    barcodeSnap.forEach((doc) =>
-      results.set(doc.id, { id: doc.id, ...doc.data() })
-    );
+    // Fetch all products only once
+    const snap = await getDocs(collection(db, "productCollection"));
+    const allProducts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    // Name prefix match
-    const start = term;
-    const end = term + "\uf8ff";
-    try {
-      const nameQ = query(
-        collection(db, "productCollection"),
-        orderBy("name"),
-        where("name", ">=", start),
-        where("name", "<=", end),
-        limit(limitResults)
+    const lowerTerm = term.toLowerCase();
+
+    // Local filtering
+    const filtered = allProducts.filter((p) => {
+      const name = p.name?.toLowerCase() || "";
+      const barcode = p.barcode?.toLowerCase() || "";
+
+      return (
+        name.includes(lowerTerm) ||
+        barcode.includes(lowerTerm)
       );
-      const nameSnap = await getDocs(nameQ);
-      nameSnap.forEach((doc) =>
-        results.set(doc.id, { id: doc.id, ...doc.data() })
-      );
-    } catch (err) {
-      console.warn("Prefix query failed:", err.message);
-    }
+    });
 
-    return { data: [...results.values()] };
+    return { data: filtered };
   }
 );
+
+
+// ----------------------------
+// BULK SEARCH (NEW)
+// ----------------------------
+export const bulkSearchProducts = createAsyncThunk(
+  "admin/bulkSearchProducts",
+  async ({ term }) => {
+    if (!term?.trim()) return { data: [] };
+
+    // Fetch all products once
+    const snap = await getDocs(collection(db, "productCollection"));
+    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const lowerTerm = term.toLowerCase();
+
+    // Local filtering
+    const filtered = all.filter((p) => {
+      const name = p.name?.toLowerCase() || "";
+      const barcode = p.barcode?.toLowerCase() || "";
+      return name.includes(lowerTerm) || barcode.includes(lowerTerm);
+    });
+    console.log(filtered);
+    
+
+    return { data: filtered };
+  }
+);
+
 
 // ----------------------------
 // INITIAL STATE
@@ -111,6 +131,7 @@ const initialState = {
     supplierCollection: [],
     suppinvoCollection: [],
   },
+
   filtered: {
     brand: {},
     category: {},
@@ -120,6 +141,10 @@ const initialState = {
     suppinvo: {},
     search: { last: [] },
   },
+
+  bulkSearchResults: [],        // NEW
+  loadingBulkSearch: false,     // NEW
+
   loadingMeta: false,
   loadingFiltered: false,
   error: null,
@@ -135,24 +160,21 @@ const adminProductSlice = createSlice({
     // Clear entire field
     clearFilteredForField: (state, action) => {
       const field = action.payload;
-      if (!state.filtered[field]) state.filtered[field] = {};
       state.filtered[field] = {};
     },
 
-    // ✅ Clear a specific value in a field
+    // Clear specific value
     clearFilteredValue: (state, action) => {
       const { field, value } = action.payload;
-      if (state.filtered[field]?.[value]) {
-        delete state.filtered[field][value];
-      }
+      if (state.filtered[field]?.[value]) delete state.filtered[field][value];
     },
   },
+
   extraReducers: (builder) => {
     builder
       // ---------------- META ----------------
       .addCase(fetchMeta.fulfilled, (state, action) => {
         const { colName, data } = action.payload;
-        state.meta = state.meta || {};
         state.meta[colName] = data || [];
         state.loadingMeta = false;
       })
@@ -161,7 +183,7 @@ const adminProductSlice = createSlice({
         state.error = action.error.message;
       })
 
-      // ---------------- FILTERED ----------------
+      // ---------------- FILTERED FIELD ----------------
       .addCase(fetchProductsByField.pending, (state) => {
         state.loadingFiltered = true;
       })
@@ -169,18 +191,15 @@ const adminProductSlice = createSlice({
         const { field, value, data } = action.payload;
         if (!field) return;
 
-        state.filtered = state.filtered || {};
-        if (!state.filtered[field]) state.filtered[field] = {};
-
         state.filtered[field][value] = {
-          products: Array.isArray(data) ? data : [],
+          products: data || [],
           lastFetched: Date.now(),
         };
 
         state.loadingFiltered = false;
       })
 
-      // ---------------- SEARCH ----------------
+      // ---------------- NORMAL SEARCH ----------------
       .addCase(searchProductsByNameOrBarcode.pending, (state) => {
         state.loadingFiltered = true;
       })
@@ -191,9 +210,24 @@ const adminProductSlice = createSlice({
       .addCase(searchProductsByNameOrBarcode.rejected, (state, action) => {
         state.error = action.error.message;
         state.loadingFiltered = false;
+      })
+
+      // ---------------- BULK SEARCH (NEW) ----------------
+      .addCase(bulkSearchProducts.pending, (state) => {
+        state.loadingBulkSearch = true;
+      })
+      .addCase(bulkSearchProducts.fulfilled, (state, action) => {
+        state.bulkSearchResults = action.payload.data || [];
+        state.loadingBulkSearch = false;
+      })
+      .addCase(bulkSearchProducts.rejected, (state, action) => {
+        state.error = action.error.message;
+        state.loadingBulkSearch = false;
       });
   },
 });
 
-export const { clearFilteredForField, clearFilteredValue } = adminProductSlice.actions;
+export const { clearFilteredForField, clearFilteredValue } =
+  adminProductSlice.actions;
+
 export default adminProductSlice.reducer;
