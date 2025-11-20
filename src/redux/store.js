@@ -24,25 +24,23 @@ const rootReducer = combineReducers({
 });
 
 const CACHE_KEY = "persist:root";
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
-// Check timestamp on load
+// Purge expired cache
 const checkCacheExpiry = () => {
   const persisted = localStorage.getItem(CACHE_KEY);
   if (!persisted) return;
-
   try {
     const state = JSON.parse(persisted);
-    const timestamp = state.adminProducts?.lastFetched || 0;
+    const timestamp = state.products?.lastFetchedAt || 0;
     if (Date.now() - timestamp > CACHE_DURATION) {
-      localStorage.removeItem(CACHE_KEY); // purge if expired
+      localStorage.removeItem(CACHE_KEY);
     }
   } catch (err) {
     console.warn("Failed to parse persisted state:", err);
   }
 };
 
-// Run expiry check before persistor initializes
 checkCacheExpiry();
 
 const persistConfig = {

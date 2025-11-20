@@ -5,6 +5,9 @@ import { useDispatch, useSelector } from "react-redux";
 import debounce from "lodash.debounce";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";
 import ProductCard from "@/components/ProductPage/ProductCard";
@@ -126,6 +129,60 @@ export default function ProductPage() {
     const safeValue = value && value.trim() !== "" ? value : "__empty__";
     return fieldData[safeValue]?.products || [];
   };
+  const handleConfirmBulkUpdate = async () => {
+  if (!previewResults || previewResults.length === 0) {
+    alert("No items to update.");
+    return;
+  }
+
+  if (!newValue?.trim()) {
+    alert("Select or enter a new value.");
+    return;
+  }
+
+  const ok = confirm(
+    `Are you sure? This will update ${previewResults.length} products.`
+  );
+  if (!ok) return;
+
+  try {
+    setUpdating(true);
+
+    const updates = previewResults.map(async (item) => {
+      console.log(item);
+      
+      const docRef = doc(db, "productCollection", item.id);
+      return updateDoc(docRef, {
+        [fieldToUpdate]: newValue.trim(),
+        updatedAt: new Date().toISOString(),
+      });
+    });
+
+    await Promise.all(updates);
+
+    alert("Bulk update completed!");
+
+    // Refresh meta lists
+    dispatch(fetchMeta("brands"));
+    dispatch(fetchMeta("categories"));
+    dispatch(fetchMeta("subcategories"));
+    dispatch(fetchMeta("groups"));
+    dispatch(fetchMeta("supplierCollection"));
+    dispatch(fetchMeta("suppinvoCollection"));
+
+    // Clear UI
+    setSearchWord("");
+    setNewValue("");
+    setPreviewResults([]);
+
+  } catch (err) {
+    console.error("Bulk update error:", err);
+    alert("Failed to update products.");
+  }
+
+  setUpdating(false);
+};
+
 
   const tabs = [
     { name: "All Products", key: "all" },
@@ -151,7 +208,8 @@ export default function ProductPage() {
           previewResults={previewResults}
           updating={updating}
           onPreview={(items) => setPreviewResults(items)}
-          onConfirm={() => {}}
+          onConfirm={handleConfirmBulkUpdate}
+
         />
 
         <div className="mt-6">

@@ -60,9 +60,22 @@ export default function BulkUpdateControls({
 
     const list = meta[col] || [];
 
-    const names = list
-      .map((i) => i.name || i.supplier || i.suppinvo)
-      .filter(Boolean);
+    const names = list.map((i) => {
+  switch (fieldToUpdate) {
+    case "brand":
+    case "category":
+    case "group":
+    case "subCategory":
+      return i.name;
+    case "supplier":
+      return i.supplier;
+    case "suppinvo":
+      return i.suppinvo;
+    default:
+      return "";
+  }
+}).filter(Boolean);
+
 
     setAvailableOptions(names);
     setCustomMode(false);
