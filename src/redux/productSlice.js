@@ -35,12 +35,27 @@ export const fetchProductsByFilter = createAsyncThunk(
   async ({ field, value, pageSize = DEFAULT_PAGE_SIZE }, { getState }) => {
     const safeValue = (value?.trim && value.trim()) || "__empty__";
     const state = getState();
+    try {
+      const snapTest = await getDocs(
+        query(
+          collection(db, "productCollection"),
+          where("visible", "==", true),
+          orderBy("createdAt", "desc"),
+          limit(20)
+        )
+      );
+      console.log(
+        "snapTest:",
+        snapTest.docs.map((d) => ({ id: d.id, ...d.data() }))
+      );
+    } catch (err) {
+      console.error("Error fetching snapTest:", err);
+    }
 
     // Check cache
     const cached = state.products.filtered?.[field]?.[safeValue];
     const cacheValid =
-      cached?.lastFetched &&
-      Date.now() - cached.lastFetched < CACHE_DURATION;
+      cached?.lastFetched && Date.now() - cached.lastFetched < CACHE_DURATION;
 
     // If cache exists AND no need for next page → return cached data
     if (cacheValid && !cached?.lastVisibleId) {
@@ -60,6 +75,7 @@ export const fetchProductsByFilter = createAsyncThunk(
     let q = query(
       productRef,
       where(field, "==", value),
+      where("visible", "==", true),
       orderBy("createdAt", "desc"),
       limit(pageSize)
     );
@@ -73,6 +89,7 @@ export const fetchProductsByFilter = createAsyncThunk(
         q = query(
           productRef,
           where(field, "==", value),
+          where("visible", "==", true),
           orderBy("createdAt", "desc"),
           startAfter(lastDocSnap),
           limit(pageSize)
@@ -176,8 +193,15 @@ const productSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchProductsByFilter.fulfilled, (state, action) => {
-        const { field, value, products, lastVisibleId, fetchedAt, isNextPage, fromCache } =
-          action.payload;
+        const {
+          field,
+          value,
+          products,
+          lastVisibleId,
+          fetchedAt,
+          isNextPage,
+          fromCache,
+        } = action.payload;
 
         if (!field) return;
 

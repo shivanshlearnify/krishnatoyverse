@@ -9,6 +9,16 @@ import { useDispatch } from "react-redux";
 import { fetchMeta } from "@/redux/adminProductSlice";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import BulkVisibilityFixer from "@/components/BulkVisibilityFixer";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -84,6 +94,38 @@ export default function AdminPage() {
 
   if (!isAuthenticated) return null;
 
+  const handleDeleteZeroStock = async () => {
+    if (!confirm("Are you sure you want to delete all products with 0 stock?"))
+      return;
+
+    try {
+      const q = query(
+        collection(db, "productCollection"),
+        where("stock", "==", 0)
+      );
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        toast.info("No products with 0 stock found.", {
+          position: "top-center",
+        });
+        return;
+      }
+
+      const deletePromises = snap.docs.map((d) =>
+        deleteDoc(doc(db, "productCollection", d.id))
+      );
+      await Promise.all(deletePromises);
+
+      toast.success(`Deleted ${snap.size} product(s) with 0 stock ✅`, {
+        position: "top-center",
+      });
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.error("Failed to delete products ❌", { position: "top-center" });
+    }
+  };
+
   // --------------------------------------
   // MAIN UI
   // --------------------------------------
@@ -105,6 +147,12 @@ export default function AdminPage() {
           >
             Go to Products <ArrowRight size={16} />
           </Link>
+          <button
+            onClick={handleDeleteZeroStock}
+            className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition"
+          >
+            Delete Products with 0 Stock
+          </button>
 
           <button
             onClick={handleLogout}
@@ -126,7 +174,7 @@ export default function AdminPage() {
 
         <ExcelUploader />
       </div>
-
+      <BulkVisibilityFixer />
       <ToastContainer />
     </div>
   );

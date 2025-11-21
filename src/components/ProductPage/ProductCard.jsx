@@ -19,23 +19,33 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
   );
 
   const handleDeleteImage = async (url) => {
-    if (!confirm("Are you sure you want to delete this image?")) return;
-    setDeleting(true);
-    try {
-      const imageRef = ref(storage, url);
-      await deleteObject(imageRef);
+  if (!confirm("Are you sure you want to delete this image?")) return;
+  setDeleting(true);
 
-      const productRef = doc(db, "productCollection", item.id);
-      await updateDoc(productRef, { images: arrayRemove(url) });
+  try {
+    // 1️⃣ Delete image from Firebase Storage
+    const imageRef = ref(storage, url);
+    await deleteObject(imageRef);
 
-      alert("✅ Image deleted successfully!");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error deleting image");
-    } finally {
-      setDeleting(false);
+    // 2️⃣ Remove image from Firestore array
+    const productRef = doc(db, "productCollection", item.id);
+    await updateDoc(productRef, { images: arrayRemove(url) });
+
+    // 3️⃣ Check if it was the last image, and set visible to false if so
+    const remainingImages = item.images.filter((img) => img !== url);
+    if (remainingImages.length === 0) {
+      await updateDoc(productRef, { visible: false });
     }
-  };
+
+    alert("✅ Image deleted successfully!");
+  } catch (err) {
+    console.error(err);
+    alert("❌ Error deleting image");
+  } finally {
+    setDeleting(false);
+  }
+};
+
 
   return (
     <div className="border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition bg-white flex flex-col justify-between relative">

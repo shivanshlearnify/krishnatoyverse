@@ -11,6 +11,7 @@ import { db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { arrayUnion } from "firebase/firestore";
 import { storage } from "@/lib/firebase";
+import { collection, getCountFromServer } from "firebase/firestore";
 
 import BulkUpdateControls from "@/components/ProductPage/BulkUpdateControls";
 import ProductCard from "@/components/ProductPage/ProductCard";
@@ -47,6 +48,54 @@ export default function ProductPage() {
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+
+  const [totalCounts, setTotalCounts] = useState({
+    all: 0,
+    brand: 0,
+    category: 0,
+    group: 0,
+    subCategory: 0,
+    supplier: 0,
+    suppinvo: 0,
+  });
+
+  const fetchCounts = async () => {
+    try {
+      const allSnap = await getCountFromServer(
+        collection(db, "productCollection")
+      );
+      const brandsSnap = await getCountFromServer(collection(db, "brands"));
+      const categoriesSnap = await getCountFromServer(
+        collection(db, "categories")
+      );
+      const groupsSnap = await getCountFromServer(collection(db, "groups"));
+      const subcategoriesSnap = await getCountFromServer(
+        collection(db, "subcategories")
+      );
+      const suppliersSnap = await getCountFromServer(
+        collection(db, "supplierCollection")
+      );
+      const invoicesSnap = await getCountFromServer(
+        collection(db, "suppinvoCollection")
+      );
+
+      setTotalCounts({
+        all: allSnap.data().count,
+        brand: brandsSnap.data().count,
+        category: categoriesSnap.data().count,
+        group: groupsSnap.data().count,
+        subCategory: subcategoriesSnap.data().count,
+        supplier: suppliersSnap.data().count,
+        suppinvo: invoicesSnap.data().count,
+      });
+    } catch (err) {
+      console.error("Failed to fetch counts:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCounts();
+  }, []);
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -110,7 +159,6 @@ export default function ProductPage() {
   const loadingFiltered = admin.loadingFiltered;
 
   // Load meta once
-
 
   // Handle click on a meta value
   const handleValueClick = (field, value) => {
@@ -214,35 +262,37 @@ export default function ProductPage() {
     setUpdating(false);
   };
   const handleUpload = async (productId, e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    try {
-      // Create file path
-      const storageRef = ref(storage, `products/${productId}/${file.name}`);
+  try {
+    // 1️⃣ Create file path in Firebase Storage
+    const storageRef = ref(storage, `products/${productId}/${file.name}`);
 
-      // Upload file
-      await uploadBytes(storageRef, file);
+    // 2️⃣ Upload file
+    await uploadBytes(storageRef, file);
 
-      // Get URL
-      const downloadURL = await getDownloadURL(storageRef);
+    // 3️⃣ Get the download URL
+    const downloadURL = await getDownloadURL(storageRef);
 
-      // Add to Firestore images array
-      const productRef = doc(db, "productCollection", productId);
-      await updateDoc(productRef, {
-        images: arrayUnion(downloadURL),
-        updatedAt: new Date().toISOString(),
-      });
+    // 4️⃣ Add image URL to Firestore and ensure visible is true
+    const productRef = doc(db, "productCollection", productId);
+    await updateDoc(productRef, {
+      images: arrayUnion(downloadURL),
+      visible: true, // ✅ Make product visible after upload
+      updatedAt: new Date().toISOString(),
+    });
 
-      alert("Image uploaded successfully!");
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Failed to upload image.");
-    }
+    alert("Image uploaded successfully!");
+  } catch (err) {
+    console.error("Upload error:", err);
+    alert("Failed to upload image.");
+  }
 
-    // Clear input for next upload
-    e.target.value = "";
-  };
+  // 5️⃣ Clear input for next upload
+  e.target.value = "";
+};
+
 
   const tabs = [
     { name: "All Products", key: "all" },
@@ -300,7 +350,7 @@ export default function ProductPage() {
                     : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
                 }`}
               >
-                {t.name}
+                {t.name} ({totalCounts[t.key] || 0})
               </button>
             ))}
           </div>

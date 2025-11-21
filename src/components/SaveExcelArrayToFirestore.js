@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -14,6 +14,20 @@ import {
 export default function SaveExcelArrayToFirestore({ dataArray }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
+  const [timer, setTimer] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      setTimer(0); // reset timer when starting
+      interval = setInterval(() => {
+        setTimer((prev) => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleSave = async () => {
     if (!dataArray || dataArray.length === 0) {
@@ -29,14 +43,10 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
       const supplierRef = collection(db, "supplierCollection");
       const suppInvoRef = collection(db, "suppinvoCollection");
 
-      // 1️⃣ Combine duplicates on barcode + name
       const aggregatedData = dataArray.reduce((acc, item) => {
         const key = `${item.barcode}_${item.name}`;
-        if (acc[key]) {
-          acc[key].stock += Number(item.stock || 0);
-        } else {
-          acc[key] = { ...item, stock: Number(item.stock || 0) };
-        }
+        if (acc[key]) acc[key].stock += Number(item.stock || 0);
+        else acc[key] = { ...item, stock: Number(item.stock || 0) };
         return acc;
       }, {});
       const finalDataArray = Object.values(aggregatedData);
@@ -44,16 +54,11 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
       for (const item of finalDataArray) {
         if (!item.barcode) continue;
 
-        // ----------------------------
-        // 2️⃣ CREATE SUPPLIER COLLECTION (NO UPDATE)
-        // ----------------------------
+        // Supplier
         if (item.supplier) {
-          const supplierQ = query(
-            supplierRef,
-            where("supplier", "==", item.supplier)
+          const supplierSnap = await getDocs(
+            query(supplierRef, where("supplier", "==", item.supplier))
           );
-          const supplierSnap = await getDocs(supplierQ);
-
           if (supplierSnap.empty) {
             await addDoc(supplierRef, {
               supplier: item.supplier,
@@ -62,16 +67,11 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
           }
         }
 
-        // ----------------------------
-        // 3️⃣ CREATE SUPPINVO COLLECTION (NO UPDATE)
-        // ----------------------------
+        // SuppInvo
         if (item.suppinvo) {
-          const invoQ = query(
-            suppInvoRef,
-            where("suppinvo", "==", item.suppinvo)
+          const invoSnap = await getDocs(
+            query(suppInvoRef, where("suppinvo", "==", item.suppinvo))
           );
-          const invoSnap = await getDocs(invoQ);
-
           if (invoSnap.empty) {
             await addDoc(suppInvoRef, {
               suppinvo: item.suppinvo,
@@ -82,45 +82,35 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
           }
         }
 
-        // ----------------------------
-        // 4️⃣ PRODUCT COLLECTION (USE EXISTING LOGIC)
-        // ----------------------------
-        const q = query(
-          productRef,
-          where("barcode", "==", item.barcode),
-          where("name", "==", item.name)
+        // Product
+        const productSnap = await getDocs(
+          query(
+            productRef,
+            where("barcode", "==", item.barcode),
+            where("name", "==", item.name)
+          )
         );
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const existingDoc = querySnapshot.docs[0];
+        if (!productSnap.empty) {
+          const existingDoc = productSnap.docs[0];
           const existingData = existingDoc.data();
-
-          const updatedFields = {
+          await updateDoc(existingDoc.ref, {
+            ...existingData,
             stock: Number(item.stock),
             cost: item.cost,
             value: item.value,
             mrp: item.mrp,
             rate: item.rate,
             updatedAt: new Date().toISOString(),
-          };
-
-          const preservedFields = {
             brand: existingData.brand || "",
             category: existingData.category || "",
             subCategory: existingData.subCategory || "",
             group: existingData.group || "",
-          };
-
-          await updateDoc(existingDoc.ref, {
-            ...existingData,
-            ...updatedFields,
-            ...preservedFields,
           });
-        } else {
+        } else if (Number(item.stock) > 0) {
           await addDoc(productRef, {
             ...item,
             stock: Number(item.stock),
+            visible: false,
             createdAt: new Date().toISOString(),
           });
         }
@@ -136,7 +126,7 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
   };
 
   return (
-    <div className="p-4 border rounded-md">
+    <div className="p-4 border rounded-md space-y-2">
       <button
         onClick={handleSave}
         disabled={loading}
@@ -144,6 +134,12 @@ export default function SaveExcelArrayToFirestore({ dataArray }) {
       >
         {loading ? "Saving..." : "Save to Firestore"}
       </button>
+
+      {loading && (
+        <p className="text-gray-600 font-semibold">
+          Saving in progress... {timer}s elapsed
+        </p>
+      )}
 
       {status && <p className="mt-2 font-semibold">{status}</p>}
     </div>
