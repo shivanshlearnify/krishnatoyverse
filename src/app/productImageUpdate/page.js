@@ -14,6 +14,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function ProductImageUpdate() {
   const router = useRouter();
@@ -159,7 +160,7 @@ export default function ProductImageUpdate() {
                 key={product.id}
                 className="p-3 bg-white border rounded-md shadow-sm hover:shadow-md transition"
               >
-                <img
+                <Image
                   src={image}
                   alt={product.name}
                   className="w-full h-40 object-cover rounded-md"
@@ -238,7 +239,7 @@ export default function ProductImageUpdate() {
                         key={i}
                         className="border rounded-lg overflow-hidden shadow-sm relative group"
                       >
-                        <img
+                        <Image
                           src={url}
                           alt="product"
                           className="w-full h-32 object-cover"

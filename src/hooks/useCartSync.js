@@ -15,12 +15,7 @@ import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  runTransaction,
-  Timestamp,
-} from "firebase/firestore";
+import { doc, getDoc, runTransaction, Timestamp } from "firebase/firestore";
 
 import { db, auth } from "@/lib/firebase";
 import {
@@ -203,19 +198,24 @@ export default function useCartSync() {
     const ageDays = (Date.now() - ts) / MS_PER_DAY;
     if (ageDays >= WARNING_DAYS && ageDays < EXPIRY_DAYS) {
       // show fun toy-store themed toast (non-blocking)
-      toast((t) => (
-        <div className="max-w-xs">
-          <strong>⚠️ Toys are getting restless!</strong>
-          <div className="mt-1 text-sm">
-            Your cart will expire soon — secure them before they escape!
+      toast(
+        (t) => (
+          <div className="max-w-xs">
+            <strong>⚠️ Toys are getting restless!</strong>
+            <div className="mt-1 text-sm">
+              Your cart will expire soon — secure them before they escape!
+            </div>
+            <div className="mt-2 text-xs opacity-80">
+              Click to view your cart
+            </div>
           </div>
-          <div className="mt-2 text-xs opacity-80">Click to view your cart</div>
-        </div>
-      ), {
-        id: "cart-expiry-warning",
-        duration: 12000,
-        // onClick could navigate to cart page if you add support here
-      });
+        ),
+        {
+          id: "cart-expiry-warning",
+          duration: 12000,
+          // onClick could navigate to cart page if you add support here
+        }
+      );
     }
   };
 
@@ -235,7 +235,10 @@ export default function useCartSync() {
           const serverUpdatedAt = server.updatedAt || null;
 
           // 2) check server expiry
-          if (serverUpdatedAt && Date.now() - serverUpdatedAt > EXPIRY_DAYS * MS_PER_DAY) {
+          if (
+            serverUpdatedAt &&
+            Date.now() - serverUpdatedAt > EXPIRY_DAYS * MS_PER_DAY
+          ) {
             // server cart expired -> clear both server & local
             await clearServerCart(uid);
             toast.success("Your previous cart expired and was cleared.");
@@ -290,6 +293,7 @@ export default function useCartSync() {
   /**
    * beforeunload flush (best-effort)
    */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const handleBeforeUnload = () => {
       const uid = currentUserRef.current;

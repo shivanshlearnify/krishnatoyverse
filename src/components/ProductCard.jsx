@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "@/redux/cartSlice";
 import { openDrawer } from "@/redux/cartDrawerSlice";
 import { toast } from "react-toastify";
+import Image from "next/image";
 
 export default function ProductCard({ product }) {
   const dispatch = useDispatch();
@@ -42,7 +43,7 @@ export default function ProductCard({ product }) {
       )}
 
       <div className="w-full aspect-square overflow-hidden rounded-xl">
-        <img
+        <Image
           src={image}
           alt={product?.name || "Product image"}
           className="w-full h-full object-contain hover:scale-105 transition-transform duration-300"

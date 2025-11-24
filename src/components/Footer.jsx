@@ -28,7 +28,7 @@ function FooterPartners({ partners }) {
       <h3 className="text-lg font-semibold mb-4 text-[#691080]">Trusted By</h3>
       <div className="flex flex-wrap gap-4 items-center">
         {partners.map((partner) => (
-          <img
+          <Image
             key={partner.name}
             src={partner.logo}
             alt={partner.name}

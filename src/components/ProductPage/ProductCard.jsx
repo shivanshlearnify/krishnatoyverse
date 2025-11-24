@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { ref, deleteObject } from "firebase/storage";
 import { doc, updateDoc, arrayRemove } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
+import Image from "next/image";
 
 export default function ProductCard({ item, uploading, onUpload, onEdit }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -164,7 +165,7 @@ export default function ProductCard({ item, uploading, onUpload, onEdit }) {
                       key={i}
                       className="border rounded-lg overflow-hidden shadow-sm relative group"
                     >
-                      <img
+                      <Image
                         src={url}
                         alt="product"
                         className="w-full h-32 object-cover"

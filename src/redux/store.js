@@ -71,7 +71,10 @@ const checkCacheExpiry = () => {
   }
 };
 
-checkCacheExpiry();
+if (typeof window !== "undefined") {
+  checkCacheExpiry();
+}
+
 
 const persistConfig = {
   key: "root",

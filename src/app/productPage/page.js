@@ -98,6 +98,7 @@ export default function ProductPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const user = localStorage.getItem("user");
 
     if (user) {
@@ -380,7 +381,7 @@ export default function ProductPage() {
                 <p>Searching…</p>
               ) : searchTerm && searchResults.length === 0 ? (
                 <p className="text-gray-500 mt-6">
-                  No products found for "{searchTerm}".
+                  No products found for &quot;{searchTerm}&quot;.
                 </p>
               ) : searchResults.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

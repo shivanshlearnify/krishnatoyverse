@@ -60,7 +60,10 @@ const saveCartToLocalStorage = (items, lastUpdatedAt) => {
   }
 };
 
-const initialFromLocal = loadCartFromLocalStorage();
+const initialFromLocal =
+  typeof window !== "undefined"
+    ? loadCartFromLocalStorage()
+    : { items: [], lastUpdatedAt: null };
 
 const cartSlice = createSlice({
   name: "cart",
