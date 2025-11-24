@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { FaInstagram, FaFacebook, FaWhatsapp } from "react-icons/fa";
 
@@ -11,7 +12,10 @@ function FooterSection({ title, links }) {
       <ul className="space-y-2">
         {links.map((link) => (
           <li key={link.name}>
-            <Link href={link.href} className="text-gray-700 hover:text-[#691080]">
+            <Link
+              href={link.href}
+              className="text-gray-700 hover:text-[#691080]"
+            >
               {link.name}
             </Link>
           </li>
@@ -32,6 +36,8 @@ function FooterPartners({ partners }) {
             key={partner.name}
             src={partner.logo}
             alt={partner.name}
+            width={96} // ← required
+            height={40} // ← required
             className="h-10 w-24 object-contain"
           />
         ))}
@@ -73,10 +79,11 @@ export default function Footer() {
   return (
     <footer className="bg-gray-100 text-gray-800 py-12">
       <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
-
         {/* Business Info */}
         <div>
-          <h2 className="text-2xl font-bold mb-1 text-[#691080]">Krishna Toyverse</h2>
+          <h2 className="text-2xl font-bold mb-1 text-[#691080]">
+            Krishna Toyverse
+          </h2>
           <p className="text-sm text-gray-600 mb-2">
             A unit of{" "}
             <a
@@ -99,14 +106,19 @@ export default function Footer() {
           </p>
           <p>
             Phone:{" "}
-            <a href="tel:+917895059555" className="text-[#691080] hover:underline">
+            <a
+              href="tel:+917895059555"
+              className="text-[#691080] hover:underline"
+            >
               +91-7895059555
             </a>
           </p>
 
           {/* Social Handle */}
           <div className="mt-4">
-            <p className="text-sm text-gray-600 mb-2 font-semibold">Connect with us</p>
+            <p className="text-sm text-gray-600 mb-2 font-semibold">
+              Connect with us
+            </p>
             <div className="flex items-center gap-4 text-2xl text-[#691080]">
               <a
                 href="https://www.instagram.com/krishnatoyverse.retail/"
@@ -139,7 +151,11 @@ export default function Footer() {
         {/* Links */}
         <div className="md:col-span-1 grid grid-cols-2 gap-6">
           {linkSections.map((section) => (
-            <FooterSection key={section.title} title={section.title} links={section.links} />
+            <FooterSection
+              key={section.title}
+              title={section.title}
+              links={section.links}
+            />
           ))}
         </div>
 
