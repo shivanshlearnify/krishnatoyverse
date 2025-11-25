@@ -1,27 +1,39 @@
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+
 export async function GET() {
-  return Response.json({
-    page: 1,
-    limit: 100,
-    total: 1,
-    collections: [
-      {
-        id: "10",
-        title: "Toys",
-        body_html: "",
-        updated_at: new Date().toISOString(),
-        image: {
-          src: "https://firebasestorage.googleapis.com/...jpg",
-        },
+  try {
+    const page = 1;
+    const limit = 100;
+
+    const metaRef = doc(db, "meta", "meta");
+    const metaSnap = await getDoc(metaRef);
+
+    if (!metaSnap.exists()) {
+      return Response.json({ page, limit, total: 0, collections: [] });
+    }
+
+    const meta = metaSnap.data();
+    const categories = meta.categories || [];
+
+    const collections = categories.map((item) => ({
+      id: String(item.id),
+      title: item.name || "",
+      body_html: "",
+      updated_at: new Date(item.createdAt || Date.now()).toISOString(),
+      image: {
+        src: item.image || item.image_url || ""
       },
-      {
-        id: "11",
-        title: "Action Figures",
-        body_html: "",
-        updated_at: new Date().toISOString(),
-        image: {
-          src: "https://firebasestorage.googleapis.com/...jpg",
-        },
-      }
-    ],
-  });
+    }));
+
+    return Response.json({
+      page,
+      limit,
+      total: collections.length,
+      collections,
+    });
+
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
 }

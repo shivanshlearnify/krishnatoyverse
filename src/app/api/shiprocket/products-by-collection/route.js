@@ -1,73 +1,99 @@
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const page = Number(searchParams.get("page") || 1);
-  const limit = Number(searchParams.get("limit") || 100);
-  const collectionId = searchParams.get("collection_id");
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  limit,
+  startAfter,
+} from "firebase/firestore";
 
-  let allProducts = [];
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const collectionName = searchParams.get("collection") || "";
+    const cursor = searchParams.get("cursor") || "";
+    const pageLimit = 100;
 
-  // PRODUCTS FROM COLLECTION 10
-  if (collectionId === "10") {
-    allProducts = [
-      {
-        id: "1",
-        title: "Wooden Toy Car",
+    if (!collectionName) {
+      return Response.json({ error: "collection is required" }, { status: 400 });
+    }
+
+    const productsRef = collection(db, "products");
+
+    // Base query
+    let q = query(
+      productsRef,
+      where("group", "==", collectionName),
+      where("visible", "==", true),
+      orderBy("createdAt", "desc"),
+      limit(pageLimit)
+    );
+
+    if (cursor) {
+      q = query(
+        productsRef,
+        where("group", "==", collectionName),
+        where("visible", "==", true),
+        orderBy("createdAt", "desc"),
+        startAfter(cursor),
+        limit(pageLimit)
+      );
+    }
+
+    let snap = await getDocs(q);
+
+    // If no 'group' match → try 'category'
+    if (snap.empty) {
+      q = query(
+        productsRef,
+        where("category", "==", collectionName),
+        where("visible", "==", true),
+        orderBy("createdAt", "desc"),
+        limit(pageLimit)
+      );
+      snap = await getDocs(q);
+    }
+
+    const products = snap.docs.map((doc) => {
+      const p = doc.data();
+      const image = p.images?.[0] || p.image || "";
+
+      return {
+        id: String(doc.id),
+        title: p.name || "",
         body_html: "",
-        vendor: "Krishna Toyverse",
-        product_type: "Toys",
+        vendor: p.company || "",
+        product_type: p.category || "",
         status: "active",
-        updated_at: new Date().toISOString(),
+
         variants: [
           {
-            id: "1-1",
+            id: String(doc.id) + "-v1",
             title: "Default",
-            price: "399",
-            quantity: 10,
-            sku: "WOODCAR-01",
-            updated_at: new Date().toISOString(),
-            image: {
-              src: "https://firebasestorage.googleapis.com/...jpg",
-            },
-            weight: 0.20,
+            price: String(p.rate || 0),
+            quantity: p.stock || 0,
+            sku: p.barcode || "",
+            updated_at: p.updatedAt || new Date().toISOString(),
+            weight: p.weight || 0.5,
+            image: { src: image },
           },
         ],
-        image: { src: "https://firebasestorage.googleapis.com/...jpg" },
-      },
-      {
-        id: "2",
-        title: "Mini Racing Car",
-        body_html: "",
-        vendor: "Krishna Toyverse",
-        product_type: "Toys",
-        status: "active",
-        updated_at: new Date().toISOString(),
-        variants: [
-          {
-            id: "2-1",
-            title: "Default",
-            price: "299",
-            quantity: 15,
-            sku: "RACECAR-01",
-            updated_at: new Date().toISOString(),
-            image: {
-              src: "https://firebasestorage.googleapis.com/...jpg",
-            },
-            weight: 0.15,
-          },
-        ],
-        image: { src: "https://firebasestorage.googleapis.com/...jpg" },
-      },
-    ];
+
+        image: { src: image },
+      };
+    });
+
+    const lastDoc = snap.docs[snap.docs.length - 1];
+
+    return Response.json({
+      products,
+      next_page_cursor: lastDoc?.id || null,
+      has_more: Boolean(lastDoc),
+    });
+
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
   }
-
-  // Pagination
-  const start = (page - 1) * limit;
-  const paginated = allProducts.slice(start, start + limit);
-
-  return Response.json({
-    page,
-    limit,
-    total: allProducts.length,
-    products: paginated,
-  });
 }

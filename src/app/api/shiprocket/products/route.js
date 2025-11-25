@@ -1,32 +1,75 @@
-export async function GET() {
-  return Response.json({
-    products: [
-      {
-        id: "1",
-        title: "RYUK ACTION FIGURE",
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
+
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const page = Number(searchParams.get("page") || 1);
+    const limitCount = Number(searchParams.get("limit") || 100);
+
+    const productsRef = collection(db, "productCollection");
+    const q = query(productsRef, orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+
+    const allProducts = snap.docs.map((docSnap) => {
+      const p = docSnap.data();
+      const id = docSnap.id;
+
+      const image = p.images?.[0] || "";
+
+      return {
+        id: id, 
+        title: p.name || "",
         body_html: "",
-        vendor: "krishna Toyverse",
-        product_type: "Toys",
-        status: "active",
-        updated_at: new Date().toISOString(),
+        vendor: p.company || "",
+        product_type: p.category || "",
+        created_at: p.updatedAt || new Date().toISOString(),
+        handle: (p.name || "").toLowerCase().replace(/\s+/g, "-"),
+        updated_at: p.updatedAt || new Date().toISOString(),
+        tags: [] || "",
+        status: p.visible ? "active" : "draft",
+
+        image: { src: image },
+
         variants: [
           {
-            id: "1-1",
+            id: id + "-v1", // unique variant ID
             title: "Default",
-            price: "499",
-            quantity: 10,
-            sku: "RYUK ACTION FIGURE-01",
-            updated_at: new Date().toISOString(),
-            image: {
-              src: "https://firebasestorage.googleapis.com/v0/b/krishnatoyverse-58344.firebasestorage.app/o/productImages%2F51nP3EeqgO7XbvQpgOyf%2F1763468072098.jpg?alt=media&token=f279d3e0-d139-499d-9756-7b06cf7ff022",
-            },
-            weight: 0.25,
+            price: String(p.rate || 0),
+            compare_at_price: String(p.mrp || ""), // REQUIRED STRING
+            sku: p.barcode || "",
+            quantity: Number(p.stock || 0),
+            created_at: p.updatedAt || new Date().toISOString(),
+            updated_at: p.updatedAt || new Date().toISOString(),
+            taxable: true,
+            option_values: {},
+            grams: Number(p.weight_grams || 300),
+            image: { src: image },
+            weight: Number(0.3),
+            weight_unit: "grams",
           },
         ],
-        image: {
-          src: "https://firebasestorage.googleapis.com/v0/b/krishnatoyverse-58344.firebasestorage.app/o/productImages%2F51nP3EeqgO7XbvQpgOyf%2F1763468072098.jpg?alt=media&token=f279d3e0-d139-499d-9756-7b06cf7ff022",
-        },
+
+        options: [
+          {
+            name: "Default",
+            values: ["Default"],
+          },
+        ],
+      };
+    });
+
+    // Manual pagination
+    const start = (page - 1) * limitCount;
+    const end = start + limitCount;
+
+    return Response.json({
+      data: {
+        total: allProducts.length,
+        products: allProducts.slice(start, end),
       },
-    ],
-  });
+    });
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
 }
